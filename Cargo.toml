@@ -1,0 +1,11 @@
+[package]
+name = "hex_str"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+serde = { version = "1", features = ["derive"], optional = true }
+thiserror = "1"
+
+[features]
+serde = ["dep:serde"]
