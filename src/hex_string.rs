@@ -83,26 +83,20 @@ impl From<Vec<u8>> for HexString {
     }
 }
 
-impl From<Cow<'_, [u8]>> for HexString {
-    fn from(value: Cow<'_, [u8]>) -> Self {
-        Self::new(value)
-    }
-}
-
 impl From<HexString> for Vec<u8> {
     fn from(value: HexString) -> Self {
         value.0
     }
 }
 
-impl From<HexString> for String {
-    fn from(value: HexString) -> Self {
+impl From<&HexString> for String {
+    fn from(value: &HexString) -> Self {
         value.to_string()
     }
 }
 
-impl From<HexString> for Cow<'static, str> {
-    fn from(value: HexString) -> Self {
+impl From<&HexString> for Cow<'static, str> {
+    fn from(value: &HexString) -> Self {
         Self::Owned(value.to_string())
     }
 }
@@ -133,20 +127,6 @@ impl TryFrom<String> for HexString {
 
     fn try_from(value: String) -> Result<Self, Self::Error> {
         match Self::try_from(value.as_str()) {
-            Ok(v) => Ok(v),
-            Err(err) => {
-                let kind = err.kind();
-                Err(Error::new(value, kind))
-            }
-        }
-    }
-}
-
-impl<'a> TryFrom<Cow<'a, str>> for HexString {
-    type Error = Error<Cow<'a, str>, FromStrError>;
-
-    fn try_from(value: Cow<'a, str>) -> Result<Self, Self::Error> {
-        match Self::try_from(&*value) {
             Ok(v) => Ok(v),
             Err(err) => {
                 let kind = err.kind();
@@ -196,13 +176,7 @@ impl<const N: usize> PartialEq<&[u8; N]> for HexString {
 
 impl PartialEq<Vec<u8>> for HexString {
     fn eq(&self, other: &Vec<u8>) -> bool {
-        other == &self.0
-    }
-}
-
-impl PartialEq<Cow<'_, [u8]>> for HexString {
-    fn eq(&self, other: &Cow<'_, [u8]>) -> bool {
-        other == &self.0
+        &self.0 == other
     }
 }
 
@@ -234,12 +208,6 @@ impl PartialEq<str> for HexString {
 impl PartialEq<&str> for HexString {
     fn eq(&self, other: &&str) -> bool {
         self == *other
-    }
-}
-
-impl PartialEq<Cow<'_, str>> for HexString {
-    fn eq(&self, other: &Cow<'_, str>) -> bool {
-        self == &**other
     }
 }
 

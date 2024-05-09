@@ -67,14 +67,14 @@ impl<const N: usize> From<HexStringN<N>> for [u8; N] {
     }
 }
 
-impl<const N: usize> From<HexStringN<N>> for String {
-    fn from(value: HexStringN<N>) -> Self {
+impl<const N: usize> From<&HexStringN<N>> for String {
+    fn from(value: &HexStringN<N>) -> Self {
         value.to_string()
     }
 }
 
-impl<const N: usize> From<HexStringN<N>> for Cow<'static, str> {
-    fn from(value: HexStringN<N>) -> Self {
+impl<const N: usize> From<&HexStringN<N>> for Cow<'static, str> {
+    fn from(value: &HexStringN<N>) -> Self {
         Self::Owned(value.to_string())
     }
 }
@@ -94,20 +94,6 @@ impl<const N: usize> TryFrom<Vec<u8>> for HexStringN<N> {
     type Error = Error<Vec<u8>, FromSliceError>;
 
     fn try_from(value: Vec<u8>) -> Result<Self, Self::Error> {
-        match Self::try_from(&*value) {
-            Ok(v) => Ok(v),
-            Err(err) => {
-                let kind = err.kind();
-                Err(Error::new(value, kind))
-            }
-        }
-    }
-}
-
-impl<'a, const N: usize> TryFrom<Cow<'a, [u8]>> for HexStringN<N> {
-    type Error = Error<Cow<'a, [u8]>, FromSliceError>;
-
-    fn try_from(value: Cow<'a, [u8]>) -> Result<Self, Self::Error> {
         match Self::try_from(&*value) {
             Ok(v) => Ok(v),
             Err(err) => {
@@ -159,20 +145,6 @@ impl<const N: usize> TryFrom<String> for HexStringN<N> {
     }
 }
 
-impl<'a, const N: usize> TryFrom<Cow<'a, str>> for HexStringN<N> {
-    type Error = Error<Cow<'a, str>, FromStrError>;
-
-    fn try_from(value: Cow<'a, str>) -> Result<Self, Self::Error> {
-        match Self::try_from(&*value) {
-            Ok(v) => Ok(v),
-            Err(err) => {
-                let kind = err.kind();
-                Err(Error::new(value, kind))
-            }
-        }
-    }
-}
-
 impl<const N: usize> FromStr for HexStringN<N> {
     type Err = FromStrError;
 
@@ -211,12 +183,6 @@ impl<const N: usize> PartialEq<Vec<u8>> for HexStringN<N> {
     }
 }
 
-impl<const N: usize> PartialEq<Cow<'_, [u8]>> for HexStringN<N> {
-    fn eq(&self, other: &Cow<'_, [u8]>) -> bool {
-        self.0 == **other
-    }
-}
-
 impl<const N: usize> PartialEq<str> for HexStringN<N> {
     fn eq(&self, other: &str) -> bool {
         let mut other = other.bytes();
@@ -245,12 +211,6 @@ impl<const N: usize> PartialEq<str> for HexStringN<N> {
 impl<const N: usize> PartialEq<&str> for HexStringN<N> {
     fn eq(&self, other: &&str) -> bool {
         self == *other
-    }
-}
-
-impl<const N: usize> PartialEq<Cow<'_, str>> for HexStringN<N> {
-    fn eq(&self, other: &Cow<'_, str>) -> bool {
-        self == &**other
     }
 }
 
