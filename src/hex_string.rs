@@ -5,557 +5,351 @@ use std::{
     str::FromStr,
 };
 
-use crate::{
-    error::{Error, FromStrError},
-    utils,
-};
+use crate::{utils, Error};
 
-macro_rules! impl_h {
-    ($owned:ident, $borrowed:ident, $display_fn:expr, $comparison_fn:expr, $(($other_owned:ident, $other_borrowed:ident)),*) => {
-        #[repr(transparent)]
-        #[derive(PartialEq, Eq, Clone, Hash)]
-        pub struct $owned(Vec<u8>);
+#[repr(transparent)]
+#[derive(Clone, PartialEq, Eq, Hash)]
+pub struct HexString<const N: usize>([u8; N]);
 
-        impl $owned {
-            #[must_use]
-            pub fn new(v: impl Into<Vec<u8>>) -> Self {
-                Self(v.into())
-            }
+impl<const N: usize> HexString<N> {
+    #[must_use]
+    pub fn new(v: impl Into<[u8; N]>) -> Self {
+        Self(v.into())
+    }
 
-            pub fn push(&mut self, v: impl Into<u8>) {
-                self.0.push(v.into())
-            }
+    #[must_use]
+    pub fn to_lower(&self) -> String {
+        self.0
+            .iter()
+            .copied()
+            .flat_map(utils::to_hex_lower)
+            .map(char::from)
+            .collect()
+    }
 
-            #[must_use]
-            pub fn pop(&mut self) -> Option<u8> {
-                self.0.pop()
-            }
+    #[must_use]
+    pub fn to_upper(&self) -> String {
+        self.0
+            .iter()
+            .copied()
+            .flat_map(utils::to_hex_upper)
+            .map(char::from)
+            .collect()
+    }
 
-            paste::paste! {
-                #[must_use]
-                pub fn [<as_ $borrowed:snake>](&self) -> &$borrowed {
-                    self.as_ref()
-                }
-
-                #[must_use]
-                pub fn [<as_mut_ $borrowed:snake>](&mut self) -> &mut $borrowed {
-                    self.as_mut()
-                }
-
-                $(
-                    #[must_use]
-                    pub fn [<to $other_owned:snake>](&self) -> $other_owned {
-                        $other_owned::new(self.0.clone())
-                    }
-
-                    #[must_use]
-                    pub fn [<into_ $other_owned:snake>](self) -> $other_owned {
-                        $other_owned::new(self.0)
-                    }
-                )*
-            }
-
-            #[must_use]
-            pub fn as_bytes(&self) -> &[u8] {
-                self.as_ref()
-            }
-
-            #[must_use]
-            pub fn as_mut_vec(&mut self) -> &mut Vec<u8> {
-                self.as_mut()
-            }
+    pub fn try_parse(v: impl AsRef<str>) -> Result<Self, Error> {
+        let v = v.as_ref();
+        if v.len() % 2 != 0 || v.len() / 2 != N {
+            return Err(Error::InvalidLength);
         }
 
-        impl Display for $owned {
-            fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-                let tmp: String = self
-                    .0
-                    .iter()
-                    .copied()
-                    .flat_map($display_fn)
-                    .map(char::from)
-                    .collect();
+        let mut bytes = v.bytes();
+        let mut ret = [0; N];
+        for v in &mut ret {
+            let a = bytes.next().unwrap();
+            let b = bytes.next().unwrap();
 
-                Display::fmt(&tmp, f)
-            }
+            *v = utils::from_hex([a, b]).ok_or(Error::InvalidCharacter)?;
         }
 
-        impl Debug for $owned {
-            fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-                f.debug_struct(stringify!($owned))
-                    .field("inner", &self.to_string())
-                    .finish()
-            }
+        Ok(Self::new(ret))
+    }
+
+    pub fn try_parse_lower(v: impl AsRef<str>) -> Result<Self, Error> {
+        let v = v.as_ref();
+        if v.len() % 2 != 0 || v.len() / 2 != N {
+            return Err(Error::InvalidLength);
         }
 
-        impl From<&[u8]> for $owned {
-            fn from(value: &[u8]) -> Self {
-                Self::new(value)
-            }
+        let mut bytes = v.bytes();
+        let mut ret = [0; N];
+        for v in &mut ret {
+            let a = bytes.next().unwrap();
+            let b = bytes.next().unwrap();
+
+            *v = utils::from_hex_lower([a, b]).ok_or(Error::InvalidCharacter)?;
         }
 
-        impl<const N: usize> From<&[u8; N]> for $owned {
-            fn from(value: &[u8; N]) -> Self {
-                Self::new(value)
-            }
+        Ok(Self::new(ret))
+    }
+
+    pub fn try_parse_upper(v: impl AsRef<str>) -> Result<Self, Error> {
+        let v = v.as_ref();
+        if v.len() % 2 != 0 || v.len() / 2 != N {
+            return Err(Error::InvalidLength);
         }
 
-        impl From<Vec<u8>> for $owned {
-            fn from(value: Vec<u8>) -> Self {
-                Self::new(value)
-            }
+        let mut bytes = v.bytes();
+        let mut ret = [0; N];
+        for v in &mut ret {
+            let a = bytes.next().unwrap();
+            let b = bytes.next().unwrap();
+
+            *v = utils::from_hex_upper([a, b]).ok_or(Error::InvalidCharacter)?;
         }
 
-        impl From<$owned> for Vec<u8> {
-            fn from(value: $owned) -> Self {
-                value.0
-            }
-        }
-
-        impl<'a> TryFrom<&'a str> for $owned {
-            type Error = Error<&'a str, FromStrError>;
-
-            fn try_from(value: &'a str) -> Result<Self, Self::Error> {
-                value.parse().map_err(|kind| Error::new(value, kind))
-            }
-        }
-
-        impl TryFrom<String> for $owned {
-            type Error = Error<String, FromStrError>;
-
-            fn try_from(value: String) -> Result<Self, Self::Error> {
-                value.parse().map_err(|kind| Error::new(value, kind))
-            }
-        }
-
-        impl FromStr for $owned {
-            type Err = FromStrError;
-
-            fn from_str(s: &str) -> Result<Self, Self::Err> {
-                if s.len() % 2 != 0 {
-                    return Err(FromStrError::InvalidLength);
-                }
-
-                let mut bytes = s.bytes();
-                let mut ret = Vec::with_capacity(s.len() / 2);
-                while let Some(a) = bytes.next() {
-                    let b = bytes.next().unwrap();
-
-                    let v = utils::from_hex([a, b]).ok_or(FromStrError::InvalidCharacter)?;
-                    ret.push(v);
-                }
-
-                Ok(Self::new(ret))
-            }
-        }
-
-        impl<const N: usize> PartialEq<[u8; N]> for $owned {
-            fn eq(&self, other: &[u8; N]) -> bool {
-                self.0 == other
-            }
-        }
-
-        impl<const N: usize> PartialEq<&[u8; N]> for $owned {
-            fn eq(&self, other: &&[u8; N]) -> bool {
-                self.0 == *other
-            }
-        }
-
-        impl PartialEq<Vec<u8>> for $owned {
-            fn eq(&self, other: &Vec<u8>) -> bool {
-                self.0 == *other
-            }
-        }
-
-        impl PartialEq<[u8]> for $owned {
-            fn eq(&self, other: &[u8]) -> bool {
-                self.0 == other
-            }
-        }
-
-        impl PartialEq<&[u8]> for $owned {
-            fn eq(&self, other: &&[u8]) -> bool {
-                self.0 == *other
-            }
-        }
-
-        impl PartialEq<str> for $owned {
-            fn eq(&self, other: &str) -> bool {
-                match other.len() {
-                    v if v % 2 != 0 || v / 2 != self.0.len() => false,
-                    _ => {
-                        let mut bytes = other.bytes();
-                        for v in &self.0 {
-                            let a = bytes.next().unwrap();
-                            let b = bytes.next().unwrap();
-
-                            let Some(w) = $comparison_fn([a, b]) else {
-                                return false;
-                            };
-
-                            if *v != w {
-                                return false;
-                            }
-                        }
-
-                        true
-                    }
-                }
-            }
-        }
-
-        impl PartialEq<&str> for $owned {
-            fn eq(&self, other: &&str) -> bool {
-                self == *other
-            }
-        }
-
-        impl PartialEq<String> for $owned {
-            fn eq(&self, other: &String) -> bool {
-                self == other.as_str()
-            }
-        }
-
-        impl Deref for $owned {
-            type Target = $borrowed;
-
-            fn deref(&self) -> &Self::Target {
-                self.as_ref()
-            }
-        }
-
-        impl DerefMut for $owned {
-            fn deref_mut(&mut self) -> &mut Self::Target {
-                self.as_mut()
-            }
-        }
-
-        impl AsRef<$owned> for $owned {
-            fn as_ref(&self) -> &$owned {
-                self
-            }
-        }
-
-        impl AsMut<$owned> for $owned {
-            fn as_mut(&mut self) -> &mut $owned {
-                self
-            }
-        }
-
-        impl AsRef<[u8]> for $owned {
-            fn as_ref(&self) -> &[u8] {
-                &self.0
-            }
-        }
-
-        impl AsMut<Vec<u8>> for $owned {
-            fn as_mut(&mut self) -> &mut Vec<u8> {
-                &mut self.0
-            }
-        }
-
-        impl FromIterator<u8> for $owned {
-            fn from_iter<T: IntoIterator<Item = u8>>(iter: T) -> Self {
-                let v: Vec<u8> = iter.into_iter().collect();
-                Self::new(v)
-            }
-        }
-
-        #[cfg(feature = "serde")]
-        impl<'de> serde::Deserialize<'de> for $owned {
-            fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-            where
-                D: serde::Deserializer<'de>,
-            {
-                struct Visitor;
-
-                impl<'de> serde::de::Visitor<'de> for Visitor {
-                    type Value = $owned;
-
-                    fn expecting(
-                        &self,
-                        formatter: &mut std::fmt::Formatter<'_>,
-                    ) -> std::fmt::Result {
-                        formatter.write_fmt(format_args!("hex string"))
-                    }
-
-                    fn visit_str<E>(self, v: &str) -> Result<Self::Value, E>
-                    where
-                        E: serde::de::Error,
-                    {
-                        v.parse().map_err(|err| E::custom(err))
-                    }
-                }
-
-                deserializer.deserialize_str(Visitor)
-            }
-        }
-
-        #[cfg(feature = "serde")]
-        impl serde::Serialize for $owned {
-            fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-            where
-                S: serde::Serializer,
-            {
-                self.to_string().serialize(serializer)
-            }
-        }
-
-        #[repr(transparent)]
-        #[derive(PartialEq, Eq, Hash)]
-        pub struct $borrowed([u8]);
-
-        impl $borrowed {
-            #[must_use]
-            pub fn new<T>(v: &T) -> &Self
-            where
-                T: AsRef<[u8]> + ?Sized,
-            {
-                unsafe { &*(v.as_ref() as *const [u8] as *const $borrowed) }
-            }
-
-            #[must_use]
-            pub fn new_mut<T>(v: &mut T) -> &mut Self
-            where
-                T: AsMut<[u8]> + ?Sized,
-            {
-                unsafe { &mut *(v.as_mut() as *mut [u8] as *mut $borrowed) }
-            }
-
-            paste::paste! {
-                #[must_use]
-                pub fn [<to_ $owned:snake>](&self) -> $owned {
-                    $owned::new(&self.0)
-                }
-
-                $(
-                    #[must_use]
-                    pub fn [<as_ $other_borrowed:snake>](&self) -> &$other_borrowed {
-                        $other_borrowed::new(self)
-                    }
-
-                    #[must_use]
-                    pub fn [<as_mut_ $other_borrowed:snake>](&mut self) -> &mut $other_borrowed {
-                        $other_borrowed::new_mut(self)
-                    }
-
-                    #[must_use]
-                    pub fn [<to_ $other_owned:snake>](&self) -> $other_owned {
-                        $other_owned::new(&self.0)
-                    }
-                )*
-            }
-        }
-
-        impl Display for $borrowed {
-            fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-                let tmp: String = self
-                    .0
-                    .iter()
-                    .copied()
-                    .flat_map($display_fn)
-                    .map(char::from)
-                    .collect();
-
-                Display::fmt(&tmp, f)
-            }
-        }
-
-        impl Debug for $borrowed {
-            fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-                f.debug_struct(stringify!($borrowed))
-                    .field("inner", &self.to_string())
-                    .finish()
-            }
-        }
-
-        impl PartialEq<$owned> for $borrowed {
-            fn eq(&self, other: &$owned) -> bool {
-                &self.0 == other.0
-            }
-        }
-
-        impl PartialEq<Vec<u8>> for $borrowed {
-            fn eq(&self, other: &Vec<u8>) -> bool {
-                &self.0 == *other
-            }
-        }
-
-        impl PartialEq<[u8]> for $borrowed {
-            fn eq(&self, other: &[u8]) -> bool {
-                &self.0 == other
-            }
-        }
-
-        impl PartialEq<&[u8]> for $borrowed {
-            fn eq(&self, other: &&[u8]) -> bool {
-                &self.0 == *other
-            }
-        }
-
-        impl PartialEq<str> for $borrowed {
-            fn eq(&self, other: &str) -> bool {
-                match other.len() {
-                    v if v % 2 != 0 => false,
-                    v if v / 2 != self.0.len() => false,
-                    _ => {
-                        let mut bytes = other.bytes();
-                        for v in &self.0 {
-                            let a = bytes.next().unwrap();
-                            let b = bytes.next().unwrap();
-
-                            let Some(w) = $comparison_fn([a, b]) else {
-                                return false;
-                            };
-
-                            if *v != w {
-                                return false;
-                            }
-                        }
-
-                        true
-                    }
-                }
-            }
-        }
-
-        impl PartialEq<&str> for $borrowed {
-            fn eq(&self, other: &&str) -> bool {
-                self == *other
-            }
-        }
-
-        impl PartialEq<String> for $borrowed {
-            fn eq(&self, other: &String) -> bool {
-                self == other.as_str()
-            }
-        }
-
-        impl AsRef<$borrowed> for $owned {
-            fn as_ref(&self) -> &$borrowed {
-                $borrowed::new(&self.0)
-            }
-        }
-
-        impl AsMut<$borrowed> for $owned {
-            fn as_mut(&mut self) -> &mut $borrowed {
-                $borrowed::new_mut(&mut self.0)
-            }
-        }
-
-        impl AsRef<$borrowed> for [u8] {
-            fn as_ref(&self) -> &$borrowed {
-                $borrowed::new(self)
-            }
-        }
-
-        impl AsMut<$borrowed> for [u8] {
-            fn as_mut(&mut self) -> &mut $borrowed {
-                $borrowed::new_mut(self)
-            }
-        }
-
-        impl AsRef<[u8]> for $borrowed {
-            fn as_ref(&self) -> &[u8] {
-                &self.0
-            }
-        }
-
-        impl AsMut<[u8]> for $borrowed {
-            fn as_mut(&mut self) -> &mut [u8] {
-                &mut self.0
-            }
-        }
-
-        $(
-            impl From<$owned> for $other_owned {
-                fn from(value: $owned) -> Self {
-                    Self::new(value.0)
-                }
-            }
-
-            impl AsRef<$other_borrowed> for $owned {
-                fn as_ref(&self) -> &$other_borrowed {
-                    $other_borrowed::new(&self.0)
-                }
-            }
-
-            impl AsMut<$other_borrowed> for $owned {
-                fn as_mut(&mut self) -> &mut $other_borrowed {
-                    $other_borrowed::new_mut(&mut self.0)
-                }
-            }
-
-            impl AsRef<$other_borrowed> for $borrowed {
-                fn as_ref(&self) -> &$other_borrowed {
-                    $other_borrowed::new(&self.0)
-                }
-            }
-
-            impl AsMut<$other_borrowed> for $borrowed {
-                fn as_mut(&mut self) -> &mut $other_borrowed {
-                    $other_borrowed::new_mut(&mut self.0)
-                }
-            }
-        )*
-
-        impl ToOwned for $borrowed {
-            type Owned = $owned;
-
-            fn to_owned(&self) -> Self::Owned {
-                $owned::new(self.0.to_vec())
-            }
-        }
-
-        impl Borrow<$borrowed> for $owned {
-            fn borrow(&self) -> &$borrowed {
-                self.as_ref()
-            }
-        }
-
-        impl BorrowMut<$borrowed> for $owned {
-            fn borrow_mut(&mut self) -> &mut $borrowed {
-                self.as_mut()
-            }
-        }
-
-        impl Deref for $borrowed {
-            type Target = [u8];
-
-            fn deref(&self) -> &Self::Target {
-                self.as_ref()
-            }
-        }
-
-        impl DerefMut for $borrowed {
-            fn deref_mut(&mut self) -> &mut Self::Target {
-                self.as_mut()
-            }
-        }
-    };
+        Ok(Self::new(ret))
+    }
 }
 
-impl_h!(
-    HexString,
-    HexStr,
-    utils::to_hex_lower,
-    utils::from_hex,
-    (HexStringLower, HexStrLower),
-    (HexStringUpper, HexStrUpper)
-);
-impl_h!(
-    HexStringLower,
-    HexStrLower,
-    utils::to_hex_lower,
-    utils::from_hex_lower,
-    (HexString, HexStr),
-    (HexStringUpper, HexStrUpper)
-);
-impl_h!(
-    HexStringUpper,
-    HexStrUpper,
-    utils::to_hex_upper,
-    utils::from_hex_upper,
-    (HexString, HexStr),
-    (HexStringLower, HexStrLower)
-);
+impl<const N: usize> Display for HexString<N> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        Display::fmt(&self.to_lower(), f)
+    }
+}
+
+impl<const N: usize> Debug for HexString<N> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("HexString")
+            .field("n", &N)
+            .field("inner", &self.to_string())
+            .finish()
+    }
+}
+
+impl<const N: usize> FromStr for HexString<N> {
+    type Err = Error;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        if s.len() % 2 != 0 || s.len() / 2 != N {
+            return Err(Error::InvalidLength);
+        }
+
+        let mut bytes = s.bytes();
+        let mut ret = [0; N];
+        for v in &mut ret {
+            let a = bytes.next().unwrap();
+            let b = bytes.next().unwrap();
+
+            *v = utils::from_hex([a, b]).ok_or(Error::InvalidCharacter)?;
+        }
+
+        Ok(Self::new(ret))
+    }
+}
+
+impl<const N: usize> From<[u8; N]> for HexString<N> {
+    fn from(value: [u8; N]) -> Self {
+        Self::new(value)
+    }
+}
+
+impl<'a, const N: usize> TryFrom<&'a str> for HexString<N> {
+    type Error = Error;
+
+    fn try_from(value: &'a str) -> Result<Self, Self::Error> {
+        value.parse()
+    }
+}
+
+impl<const N: usize> TryFrom<String> for HexString<N> {
+    type Error = Error;
+
+    fn try_from(value: String) -> Result<Self, Self::Error> {
+        value.parse()
+    }
+}
+
+impl<const N: usize> PartialEq<[u8; N]> for HexString<N> {
+    fn eq(&self, other: &[u8; N]) -> bool {
+        &self.0 == other
+    }
+}
+
+impl<const N: usize> PartialEq<&[u8; N]> for HexString<N> {
+    fn eq(&self, other: &&[u8; N]) -> bool {
+        &self.0 == *other
+    }
+}
+
+impl<const N: usize> PartialEq<[u8]> for HexString<N> {
+    fn eq(&self, other: &[u8]) -> bool {
+        self.0 == other
+    }
+}
+
+impl<const N: usize> PartialEq<&[u8]> for HexString<N> {
+    fn eq(&self, other: &&[u8]) -> bool {
+        self.0 == *other
+    }
+}
+
+impl<const N: usize> PartialEq<str> for HexString<N> {
+    fn eq(&self, other: &str) -> bool {
+        if other.len() % 2 == 0 && other.len() / 2 == self.0.len() {
+            let mut bytes = other.bytes();
+            for v in &self.0 {
+                let a = bytes.next().unwrap();
+                let b = bytes.next().unwrap();
+
+                let Some(w) = utils::from_hex([a, b]) else {
+                    return false;
+                };
+
+                if *v != w {
+                    return false;
+                }
+            }
+
+            true
+        } else {
+            false
+        }
+    }
+}
+
+impl<const N: usize> PartialEq<&str> for HexString<N> {
+    fn eq(&self, other: &&str) -> bool {
+        self == *other
+    }
+}
+
+impl<const N: usize> PartialEq<String> for HexString<N> {
+    fn eq(&self, other: &String) -> bool {
+        self == other.as_str()
+    }
+}
+
+impl<const N: usize> Deref for HexString<N> {
+    type Target = [u8; N];
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl<const N: usize> DerefMut for HexString<N> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.0
+    }
+}
+
+impl<const N: usize> AsRef<HexString<N>> for HexString<N> {
+    fn as_ref(&self) -> &HexString<N> {
+        self
+    }
+}
+
+impl<const N: usize> AsMut<HexString<N>> for HexString<N> {
+    fn as_mut(&mut self) -> &mut HexString<N> {
+        self
+    }
+}
+
+impl<const N: usize> AsRef<[u8; N]> for HexString<N> {
+    fn as_ref(&self) -> &[u8; N] {
+        &self.0
+    }
+}
+
+impl<const N: usize> AsMut<[u8; N]> for HexString<N> {
+    fn as_mut(&mut self) -> &mut [u8; N] {
+        &mut self.0
+    }
+}
+
+impl<const N: usize> AsRef<[u8]> for HexString<N> {
+    fn as_ref(&self) -> &[u8] {
+        &self.0
+    }
+}
+
+impl<const N: usize> AsMut<[u8]> for HexString<N> {
+    fn as_mut(&mut self) -> &mut [u8] {
+        &mut self.0
+    }
+}
+
+impl<const N: usize> AsRef<HexString<N>> for [u8; N] {
+    fn as_ref(&self) -> &HexString<N> {
+        unsafe { &*(self as *const [u8; N]).cast() }
+    }
+}
+
+impl<const N: usize> AsMut<HexString<N>> for [u8; N] {
+    fn as_mut(&mut self) -> &mut HexString<N> {
+        unsafe { &mut *(self as *mut [u8; N]).cast() }
+    }
+}
+
+impl<const N: usize> Borrow<[u8; N]> for HexString<N> {
+    fn borrow(&self) -> &[u8; N] {
+        self
+    }
+}
+
+impl<const N: usize> BorrowMut<[u8; N]> for HexString<N> {
+    fn borrow_mut(&mut self) -> &mut [u8; N] {
+        self
+    }
+}
+
+impl<const N: usize> Borrow<[u8]> for HexString<N> {
+    fn borrow(&self) -> &[u8] {
+        self.as_slice()
+    }
+}
+
+impl<const N: usize> BorrowMut<[u8]> for HexString<N> {
+    fn borrow_mut(&mut self) -> &mut [u8] {
+        self.as_mut_slice()
+    }
+}
+
+impl<const N: usize> Borrow<HexString<N>> for [u8; N] {
+    fn borrow(&self) -> &HexString<N> {
+        self.as_ref()
+    }
+}
+
+impl<const N: usize> BorrowMut<HexString<N>> for [u8; N] {
+    fn borrow_mut(&mut self) -> &mut HexString<N> {
+        self.as_mut()
+    }
+}
+
+#[cfg(feature = "serde")]
+impl<'de, const N: usize> serde::Deserialize<'de> for HexString<N> {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        struct Visitor<const O: usize>;
+
+        impl<'de, const O: usize> serde::de::Visitor<'de> for Visitor<O> {
+            type Value = HexString<O>;
+
+            fn expecting(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                formatter.write_fmt(format_args!("hex string of length `{O}`"))
+            }
+
+            fn visit_str<E>(self, v: &str) -> Result<Self::Value, E>
+            where
+                E: serde::de::Error,
+            {
+                v.parse().map_err(|err| E::custom(err))
+            }
+        }
+
+        deserializer.deserialize_str(Visitor)
+    }
+}
+
+#[cfg(feature = "serde")]
+impl<const N: usize> serde::Serialize for HexString<N> {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        self.to_string().serialize(serializer)
+    }
+}
+
+#[cfg(feature = "rand")]
+impl<const N: usize> rand::distributions::Distribution<HexString<N>>
+    for rand::distributions::Standard
+{
+    fn sample<R: rand::Rng + ?Sized>(&self, rng: &mut R) -> HexString<N> {
+        HexString::new(rng.gen::<[u8; N]>())
+    }
+}

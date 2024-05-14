@@ -4,9 +4,8 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-paste = "1"
-rand = { version = "0.8.4", optional = true, features = ["min_const_gen"] }
-serde = { version = "1", features = ["derive"], optional = true }
+rand = { version = "0.8.4", default-features = false, optional = true, features = ["min_const_gen"] }
+serde = { version = "1", default-features = false, optional = true }
 thiserror = "1"
 
 [features]
