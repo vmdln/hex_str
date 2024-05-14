@@ -3,7 +3,7 @@ use std::borrow::Borrow;
 use super::hex_error::HexError;
 
 #[derive(Debug, thiserror::Error)]
-#[error("{inner}")]
+#[error("{kind}")]
 pub struct Error<T, E>
 where
     E: HexError + Clone + std::error::Error,

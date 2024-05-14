@@ -1,279 +1,570 @@
 use std::{
-    borrow::Cow,
-    fmt::{Debug, Display, LowerHex, UpperHex},
+    borrow::{Borrow, BorrowMut},
+    fmt::{Debug, Display},
+    ops::{Deref, DerefMut},
     str::FromStr,
 };
 
-use super::{
-    error::{Error, FromSliceError, FromStrError},
-    fmt::{Lower, Upper},
+use crate::{
+    error::{Error, FromStrError},
     utils,
 };
 
-#[derive(Clone, PartialEq, Eq)]
-pub struct HexStringN<const N: usize>([u8; N]);
+macro_rules! impl_h {
+    ($owned:tt, $borrowed:tt, $display_fn:expr, $comparison_fn:expr, $(($other_owned:tt, $other_borrowed:tt)),*) => {
+        #[repr(transparent)]
+        #[derive(PartialEq, Eq, Clone, Hash)]
+        pub struct $owned<const N: usize>([u8; N]);
 
-impl<const N: usize> HexStringN<N> {
-    #[must_use]
-    pub fn new(v: impl Into<[u8; N]>) -> Self {
-        Self(v.into())
-    }
-
-    #[must_use]
-    pub fn inner(&self) -> &[u8; N] {
-        &self.0
-    }
-
-    #[must_use]
-    pub fn inner_mut(&mut self) -> &mut [u8; N] {
-        &mut self.0
-    }
-
-    #[must_use]
-    pub fn into_inner(self) -> [u8; N] {
-        self.0
-    }
-
-    #[must_use]
-    pub fn as_lower(&self) -> Lower<'_> {
-        Lower(Cow::Borrowed(&self.0))
-    }
-
-    #[must_use]
-    pub fn to_lower(&self) -> Lower<'static> {
-        Lower(Cow::Owned(self.0.to_vec()))
-    }
-
-    #[must_use]
-    pub fn as_upper(&self) -> Upper<'_> {
-        Upper(Cow::Borrowed(&self.0))
-    }
-
-    #[must_use]
-    pub fn to_upper(&self) -> Upper<'static> {
-        Upper(Cow::Owned(self.0.to_vec()))
-    }
-}
-
-impl<const N: usize> From<[u8; N]> for HexStringN<N> {
-    fn from(value: [u8; N]) -> Self {
-        Self::new(value)
-    }
-}
-
-impl<const N: usize> From<HexStringN<N>> for [u8; N] {
-    fn from(value: HexStringN<N>) -> Self {
-        value.0
-    }
-}
-
-impl<const N: usize> From<&HexStringN<N>> for String {
-    fn from(value: &HexStringN<N>) -> Self {
-        value.to_string()
-    }
-}
-
-impl<const N: usize> From<&HexStringN<N>> for Cow<'static, str> {
-    fn from(value: &HexStringN<N>) -> Self {
-        Self::Owned(value.to_string())
-    }
-}
-
-impl<'a, const N: usize> TryFrom<&'a [u8]> for HexStringN<N> {
-    type Error = Error<&'a [u8], FromSliceError>;
-
-    fn try_from(value: &'a [u8]) -> Result<Self, Self::Error> {
-        value
-            .try_into()
-            .map(Self)
-            .map_err(|_| Error::new(value, FromSliceError))
-    }
-}
-
-impl<const N: usize> TryFrom<Vec<u8>> for HexStringN<N> {
-    type Error = Error<Vec<u8>, FromSliceError>;
-
-    fn try_from(value: Vec<u8>) -> Result<Self, Self::Error> {
-        match Self::try_from(&*value) {
-            Ok(v) => Ok(v),
-            Err(err) => {
-                let kind = err.kind();
-                Err(Error::new(value, kind))
+        impl<const N: usize> $owned<N> {
+            #[must_use]
+            pub fn new(v: impl Into<[u8; N]>) -> Self {
+                Self(v.into())
             }
-        }
-    }
-}
 
-impl<'a, const N: usize> TryFrom<&'a str> for HexStringN<N> {
-    type Error = Error<&'a str, FromStrError>;
-
-    fn try_from(value: &'a str) -> Result<Self, Self::Error> {
-        let mut bytes = value.bytes();
-        let mut buf = [0; N];
-
-        for v in &mut buf {
-            let a = bytes
-                .next()
-                .ok_or(Error::new(value, FromStrError::InvalidLength))?;
-            let b = bytes
-                .next()
-                .ok_or(Error::new(value, FromStrError::InvalidLength))?;
-
-            *v =
-                utils::from_hex([a, b]).ok_or(Error::new(value, FromStrError::InvalidCharacter))?;
-        }
-
-        if bytes.next().is_some() {
-            Err(Error::new(value, FromStrError::InvalidLength))
-        } else {
-            Ok(Self(buf))
-        }
-    }
-}
-
-impl<const N: usize> TryFrom<String> for HexStringN<N> {
-    type Error = Error<String, FromStrError>;
-
-    fn try_from(value: String) -> Result<Self, Self::Error> {
-        match Self::try_from(value.as_str()) {
-            Ok(v) => Ok(v),
-            Err(err) => {
-                let kind = err.kind();
-                Err(Error::new(value, kind))
-            }
-        }
-    }
-}
-
-impl<const N: usize> FromStr for HexStringN<N> {
-    type Err = FromStrError;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        Self::try_from(s).map_err(|err| err.kind())
-    }
-}
-
-impl<const N: usize> PartialEq<[u8]> for HexStringN<N> {
-    fn eq(&self, other: &[u8]) -> bool {
-        self.0 == other
-    }
-}
-
-impl<const N: usize> PartialEq<&[u8]> for HexStringN<N> {
-    fn eq(&self, other: &&[u8]) -> bool {
-        self.0 == *other
-    }
-}
-
-impl<const N: usize> PartialEq<[u8; N]> for HexStringN<N> {
-    fn eq(&self, other: &[u8; N]) -> bool {
-        &self.0 == other
-    }
-}
-
-impl<const N: usize> PartialEq<&[u8; N]> for HexStringN<N> {
-    fn eq(&self, other: &&[u8; N]) -> bool {
-        &self.0 == *other
-    }
-}
-
-impl<const N: usize> PartialEq<Vec<u8>> for HexStringN<N> {
-    fn eq(&self, other: &Vec<u8>) -> bool {
-        other == &self.0
-    }
-}
-
-impl<const N: usize> PartialEq<str> for HexStringN<N> {
-    fn eq(&self, other: &str) -> bool {
-        let mut other = other.bytes();
-
-        for v in &self.0 {
-            let Some(a) = other.next() else {
-                return false;
-            };
-            let Some(b) = other.next() else {
-                return false;
-            };
-
-            if let Some(w) = utils::from_hex([a, b]) {
-                if *v != w {
-                    return false;
+            paste::paste! {
+                #[must_use]
+                pub fn [<as_ $borrowed:snake>](&self) -> &$borrowed<N> {
+                    self.as_ref()
                 }
-            } else {
-                return false;
+
+                #[must_use]
+                pub fn [<as_mut_ $borrowed:snake>](&mut self) -> &mut $borrowed<N> {
+                    self.as_mut()
+                }
+
+                $(
+                    #[must_use]
+                    pub fn [<to $other_owned:snake>](&self) -> $other_owned<N> {
+                        $other_owned::new(self.0.clone())
+                    }
+
+                    #[must_use]
+                    pub fn [<into_ $other_owned:snake>](self) -> $other_owned<N> {
+                        $other_owned::new(self.0)
+                    }
+                )*
             }
         }
 
-        other.next().is_none()
-    }
-}
+        impl<const N: usize> Display for $owned<N> {
+            fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                let tmp: String = self
+                    .0
+                    .iter()
+                    .copied()
+                    .flat_map($display_fn)
+                    .map(char::from)
+                    .collect();
 
-impl<const N: usize> PartialEq<&str> for HexStringN<N> {
-    fn eq(&self, other: &&str) -> bool {
-        self == *other
-    }
-}
+                Display::fmt(&tmp, f)
+            }
+        }
 
-impl<const N: usize> Display for HexStringN<N> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        self.as_lower().fmt(f)
-    }
-}
+        impl<const N: usize> Debug for $owned<N> {
+            fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                f.debug_struct(stringify!($owned))
+                    .field("inner", &self.to_string())
+                    .field("n", &N)
+                    .finish()
+            }
+        }
 
-impl<const N: usize> LowerHex for HexStringN<N> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        self.as_lower().fmt(f)
-    }
-}
+        impl<const N: usize> From<[u8; N]> for $owned<N> {
+            fn from(value: [u8; N]) -> Self {
+                Self::new(value)
+            }
+        }
 
-impl<const N: usize> UpperHex for HexStringN<N> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        self.as_upper().fmt(f)
-    }
-}
+        impl<const N: usize> From<$owned<N>> for [u8; N] {
+            fn from(value: $owned<N>) -> Self {
+                value.0
+            }
+        }
 
-impl<const N: usize> Debug for HexStringN<N> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("HexStringN")
-            .field("n", &N)
-            .field("inner", &self.to_string())
-            .finish()
-    }
-}
+        $(
+            impl<const N: usize> From<$owned<N>> for $other_owned<N> {
+                fn from(value: $owned<N>) -> Self {
+                    Self::new(value.0)
+                }
+            }
+        )*
 
-#[cfg(feature = "serde")]
-impl<'de, const N: usize> serde::Deserialize<'de> for HexStringN<N> {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: serde::Deserializer<'de>,
-    {
-        struct HexStringVisitor<const N: usize>;
+        impl<'a, const N: usize> TryFrom<&'a str> for $owned<N> {
+            type Error = Error<&'a str, FromStrError>;
 
-        impl<'de, const N: usize> serde::de::Visitor<'de> for HexStringVisitor<N> {
-            type Value = HexStringN<N>;
+            fn try_from(value: &'a str) -> Result<Self, Self::Error> {
+                value.parse().map_err(|kind| Error::new(value, kind))
+            }
+        }
 
-            fn expecting(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-                formatter.write_fmt(format_args!("hex string containing {N} bytes"))
+        impl<const N: usize> TryFrom<String> for $owned<N> {
+            type Error = Error<String, FromStrError>;
+
+            fn try_from(value: String) -> Result<Self, Self::Error> {
+                value.parse().map_err(|kind| Error::new(value, kind))
+            }
+        }
+
+        impl<const N: usize> FromStr for $owned<N> {
+            type Err = FromStrError;
+
+            fn from_str(s: &str) -> Result<Self, Self::Err> {
+                if s.len() % 2 != 0 || s.len() / 2 != N {
+                    return Err(FromStrError::InvalidLength);
+                }
+
+                let mut bytes = s.bytes();
+                let mut ret = [0; N];
+                for v in &mut ret {
+                    let a = bytes.next().unwrap();
+                    let b = bytes.next().unwrap();
+
+                    *v = utils::from_hex([a, b]).ok_or(FromStrError::InvalidCharacter)?;
+                }
+
+                Ok(Self::new(ret))
+            }
+        }
+
+        impl<const N: usize> PartialEq<[u8; N]> for $owned<N> {
+            fn eq(&self, other: &[u8; N]) -> bool {
+                self.0 == *other
+            }
+        }
+
+        impl<const N: usize> PartialEq<&[u8; N]> for $owned<N> {
+            fn eq(&self, other: &&[u8; N]) -> bool {
+                self.0 == **other
+            }
+        }
+
+        impl<const N: usize> PartialEq<Vec<u8>> for $owned<N> {
+            fn eq(&self, other: &Vec<u8>) -> bool {
+                self.0 == **other
+            }
+        }
+
+        impl<const N: usize> PartialEq<[u8]> for $owned<N> {
+            fn eq(&self, other: &[u8]) -> bool {
+                self.0 == other
+            }
+        }
+
+        impl<const N: usize> PartialEq<&[u8]> for $owned<N> {
+            fn eq(&self, other: &&[u8]) -> bool {
+                self.0 == *other
+            }
+        }
+
+        impl<const N: usize> PartialEq<str> for $owned<N> {
+            fn eq(&self, other: &str) -> bool {
+                match other.len() {
+                    v if v % 2 != 0 || v / 2 != self.0.len() => false,
+                    _ => {
+                        let mut bytes = other.bytes();
+                        for v in &self.0 {
+                            let a = bytes.next().unwrap();
+                            let b = bytes.next().unwrap();
+
+                            let Some(w) = $comparison_fn([a, b]) else {
+                                return false;
+                            };
+
+                            if *v != w {
+                                return false;
+                            }
+                        }
+
+                        true
+                    }
+                }
+            }
+        }
+
+        impl<const N: usize> PartialEq<&str> for $owned<N> {
+            fn eq(&self, other: &&str) -> bool {
+                self == *other
+            }
+        }
+
+        impl<const N: usize> PartialEq<String> for $owned<N> {
+            fn eq(&self, other: &String) -> bool {
+                self == other.as_str()
+            }
+        }
+
+        impl<const N: usize> Deref for $owned<N> {
+            type Target = $borrowed<N>;
+
+            fn deref(&self) -> &Self::Target {
+                self.as_ref()
+            }
+        }
+
+        impl<const N: usize> DerefMut for $owned<N> {
+            fn deref_mut(&mut self) -> &mut Self::Target {
+                self.as_mut()
+            }
+        }
+
+        impl<const N: usize> AsRef<$owned<N>> for $owned<N> {
+            fn as_ref(&self) -> &$owned<N> {
+                self
+            }
+        }
+
+        impl<const N: usize> AsMut<$owned<N>> for $owned<N> {
+            fn as_mut(&mut self) -> &mut $owned<N> {
+                self
+            }
+        }
+
+        $(
+            impl<const N: usize> AsRef<$other_borrowed<N>> for $owned<N> {
+                fn as_ref(&self) -> &$other_borrowed<N> {
+                    $other_borrowed::new(&self.0)
+                }
             }
 
-            fn visit_str<E>(self, v: &str) -> Result<Self::Value, E>
+            impl<const N: usize> AsMut<$other_borrowed<N>> for $owned<N> {
+                fn as_mut(&mut self) -> &mut $other_borrowed<N> {
+                    $other_borrowed::new_mut(&mut self.0)
+                }
+            }
+        )*
+
+        impl<const N: usize> AsRef<[u8; N]> for $owned<N> {
+            fn as_ref(&self) -> &[u8; N] {
+                &self.0
+            }
+        }
+
+        impl<const N: usize> AsMut<[u8; N]> for $owned<N> {
+            fn as_mut(&mut self) -> &mut [u8; N] {
+                &mut self.0
+            }
+        }
+
+        impl<const N: usize> AsRef<[u8]> for $owned<N> {
+            fn as_ref(&self) -> &[u8] {
+                &self.0
+            }
+        }
+
+        impl<const N: usize> AsMut<[u8]> for $owned<N> {
+            fn as_mut(&mut self) -> &mut [u8] {
+                &mut self.0
+            }
+        }
+
+        #[cfg(feature = "serde")]
+        impl<'de, const N: usize> serde::Deserialize<'de> for $owned<N> {
+            fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
             where
-                E: serde::de::Error,
+                D: serde::Deserializer<'de>,
             {
-                Self::Value::try_from(v).map_err(E::custom)
+                struct Visitor<const O: usize>;
+
+                impl<'de, const O: usize> serde::de::Visitor<'de> for Visitor<O> {
+                    type Value = $owned<O>;
+
+                    fn expecting(
+                        &self,
+                        formatter: &mut std::fmt::Formatter<'_>,
+                    ) -> std::fmt::Result {
+                        formatter.write_fmt(format_args!("hex string"))
+                    }
+
+                    fn visit_str<E>(self, v: &str) -> Result<Self::Value, E>
+                    where
+                        E: serde::de::Error,
+                    {
+                        v.parse().map_err(|err| E::custom(err))
+                    }
+                }
+
+                deserializer.deserialize_str(Visitor)
             }
         }
 
-        deserializer.deserialize_str(HexStringVisitor)
-    }
+        #[cfg(feature = "serde")]
+        impl<const N: usize> serde::Serialize for $owned<N> {
+            fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+            where
+                S: serde::Serializer,
+            {
+                self.to_string().serialize(serializer)
+            }
+        }
+
+        #[cfg(feature = "rand")]
+        impl<const N: usize> rand::distributions::Distribution<$owned<N>> for rand::distributions::Standard {
+            fn sample<R: rand::Rng + ?Sized>(&self, rng: &mut R) -> $owned<N> {
+                $owned::new(rng.gen::<[u8; N]>())
+            }
+        }
+
+        #[repr(transparent)]
+        #[derive(PartialEq, Eq, Hash)]
+        pub struct $borrowed<const N: usize>([u8; N]);
+
+        impl<const N: usize> $borrowed<N> {
+            // unfortunately, there is no impl AsRef<[u8; N]> for [u8; N]
+            #[must_use]
+            pub fn new(v: &[u8; N]) -> &Self
+            {
+                unsafe { &*(v as *const [u8; N]).cast() }
+            }
+
+            #[must_use]
+            pub fn new_mut(v: &mut [u8; N]) -> &mut Self
+            {
+                unsafe { &mut *(v as *mut [u8; N]).cast() }
+            }
+
+            paste::paste! {
+                #[must_use]
+                pub fn [<to_ $owned:snake>](&self) -> $owned<N> {
+                    $owned::new(self.0.clone())
+                }
+
+                $(
+                    #[must_use]
+                    pub fn [<as_ $other_borrowed:snake>](&self) -> &$other_borrowed<N> {
+                        self.as_ref()
+                    }
+
+                    #[must_use]
+                    pub fn [<as_mut_ $other_borrowed:snake>](&mut self) -> &mut $other_borrowed<N> {
+                        self.as_mut()
+                    }
+
+                    #[must_use]
+                    pub fn [<to_ $other_owned:snake>](&self) -> $other_owned<N> {
+                        $other_owned::new(self.0.clone())
+                    }
+                )*
+            }
+
+        }
+
+        impl<const N: usize> Display for $borrowed<N> {
+            fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                let tmp: String = self
+                    .0
+                    .iter()
+                    .copied()
+                    .flat_map($display_fn)
+                    .map(char::from)
+                    .collect();
+
+                Display::fmt(&tmp, f)
+            }
+        }
+
+        impl<const N: usize> Debug for $borrowed<N> {
+            fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                f.debug_struct(stringify!($borrowed))
+                    .field("inner", &self.to_string())
+                    .finish()
+            }
+        }
+
+        impl<const N: usize> PartialEq<$owned<N>> for $borrowed<N> {
+            fn eq(&self, other: &$owned<N>) -> bool {
+                self.0 == other.0
+            }
+        }
+
+        impl<const N: usize> PartialEq<[u8; N]> for $borrowed<N> {
+            fn eq(&self, other: &[u8; N]) -> bool {
+                self.0 == *other
+            }
+        }
+
+        impl<const N: usize> PartialEq<&[u8; N]> for $borrowed<N> {
+            fn eq(&self, other: &&[u8; N]) -> bool {
+                self.0 == **other
+            }
+        }
+
+        impl<const N: usize> PartialEq<Vec<u8>> for $borrowed<N> {
+            fn eq(&self, other: &Vec<u8>) -> bool {
+                self.0 == **other
+            }
+        }
+
+        impl<const N: usize> PartialEq<[u8]> for $borrowed<N> {
+            fn eq(&self, other: &[u8]) -> bool {
+                &self.0 == other
+            }
+        }
+
+        impl<const N: usize> PartialEq<&[u8]> for $borrowed<N> {
+            fn eq(&self, other: &&[u8]) -> bool {
+                &self.0 == *other
+            }
+        }
+
+        impl<const N: usize> PartialEq<str> for $borrowed<N> {
+            fn eq(&self, other: &str) -> bool {
+                match other.len() {
+                    v if v % 2 != 0 => false,
+                    v if v / 2 != self.0.len() => false,
+                    _ => {
+                        let mut bytes = other.bytes();
+                        for v in &self.0 {
+                            let a = bytes.next().unwrap();
+                            let b = bytes.next().unwrap();
+
+                            let Some(w) = $comparison_fn([a, b]) else {
+                                return false;
+                            };
+
+                            if *v != w {
+                                return false;
+                            }
+                        }
+
+                        true
+                    }
+                }
+            }
+        }
+
+        impl<const N: usize> PartialEq<&str> for $borrowed<N> {
+            fn eq(&self, other: &&str) -> bool {
+                self == *other
+            }
+        }
+
+        impl<const N: usize> PartialEq<String> for $borrowed<N> {
+            fn eq(&self, other: &String) -> bool {
+                self == other.as_str()
+            }
+        }
+
+        impl<const N: usize> AsRef<$borrowed<N>> for [u8; N] {
+            fn as_ref(&self) -> &$borrowed<N> {
+                $borrowed::new(self)
+            }
+        }
+
+        impl<const N: usize> AsMut<$borrowed<N>> for [u8; N] {
+            fn as_mut(&mut self) -> &mut $borrowed<N> {
+                $borrowed::new_mut(self)
+            }
+        }
+
+        impl<const N: usize> AsRef<$borrowed<N>> for $owned<N> {
+            fn as_ref(&self) -> &$borrowed<N> {
+                $borrowed::new(&self.0)
+            }
+        }
+
+        impl<const N: usize> AsMut<$borrowed<N>> for $owned<N> {
+            fn as_mut(&mut self) -> &mut $borrowed<N> {
+                $borrowed::new_mut(&mut self.0)
+            }
+        }
+
+        impl<const N: usize> AsRef<[u8]> for $borrowed<N> {
+            fn as_ref(&self) -> &[u8] {
+                &self.0
+            }
+        }
+
+        impl<const N: usize> AsMut<[u8]> for $borrowed<N> {
+            fn as_mut(&mut self) -> &mut [u8] {
+                &mut self.0
+            }
+        }
+
+        impl<const N: usize> AsRef<[u8; N]> for $borrowed<N> {
+            fn as_ref(&self) -> &[u8; N] {
+                &self.0
+            }
+        }
+
+        impl<const N: usize> AsMut<[u8; N]> for $borrowed<N> {
+            fn as_mut(&mut self) -> &mut [u8; N] {
+                &mut self.0
+            }
+        }
+
+        $(
+            impl<const N: usize> AsRef<$other_borrowed<N>> for $borrowed<N> {
+                fn as_ref(&self) -> &$other_borrowed<N> {
+                    $other_borrowed::new(&self.0)
+                }
+            }
+
+            impl<const N: usize> AsMut<$other_borrowed<N>> for $borrowed<N> {
+                fn as_mut(&mut self) -> &mut $other_borrowed<N> {
+                    $other_borrowed::new_mut(&mut self.0)
+                }
+            }
+        )*
+
+        impl<const N: usize> ToOwned for $borrowed<N> {
+            type Owned = $owned<N>;
+
+            fn to_owned(&self) -> Self::Owned {
+                $owned::new(self.0.clone())
+            }
+        }
+
+        impl<const N: usize> Borrow<$borrowed<N>> for $owned<N> {
+            fn borrow(&self) -> &$borrowed<N> {
+                self.as_ref()
+            }
+        }
+
+        impl<const N: usize> BorrowMut<$borrowed<N>> for $owned<N> {
+            fn borrow_mut(&mut self) -> &mut $borrowed<N> {
+                self.as_mut()
+            }
+        }
+
+        impl<const N: usize> Deref for $borrowed<N> {
+            type Target = [u8; N];
+
+            fn deref(&self) -> &Self::Target {
+                self.as_ref()
+            }
+        }
+
+        impl<const N: usize> DerefMut for $borrowed<N> {
+            fn deref_mut(&mut self) -> &mut Self::Target {
+                self.as_mut()
+            }
+        }
+    };
 }
 
-#[cfg(feature = "serde")]
-impl<const N: usize> serde::Serialize for HexStringN<N> {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: serde::Serializer,
-    {
-        self.to_string().serialize(serializer)
-    }
-}
+impl_h!(
+    HexStringN,
+    HexStrN,
+    utils::to_hex_lower,
+    utils::from_hex,
+    (HexStringNLower, HexStrNLower),
+    (HexStringNUpper, HexStrNUpper)
+);
+
+impl_h!(
+    HexStringNLower,
+    HexStrNLower,
+    utils::to_hex_lower,
+    utils::from_hex_lower,
+    (HexStringN, HexStrN),
+    (HexStringNUpper, HexStrNUpper)
+);
+impl_h!(
+    HexStringNUpper,
+    HexStrNUpper,
+    utils::to_hex_upper,
+    utils::from_hex_upper,
+    (HexStringN, HexStrN),
+    (HexStringNLower, HexStrNLower)
+);
