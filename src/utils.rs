@@ -1,53 +1,32 @@
-pub fn from_hex([a, b]: [u8; 2]) -> Option<u8> {
-    let parse_hex = |v: u8| -> Option<u8> {
-        let ret = match v {
-            b'0'..=b'9' => v - b'0',
-            b'a'..=b'f' => v - b'a' + 10,
-            b'A'..=b'F' => v - b'A' + 10,
-            _ => return None,
-        };
-
-        Some(ret)
+pub fn parse_quartet(v: u8) -> Option<u8> {
+    let ret = match v {
+        b'0'..=b'9' => v - b'0',
+        b'a'..=b'f' => v - b'a' + 10,
+        b'A'..=b'F' => v - b'A' + 10,
+        _ => return None,
     };
 
-    let a = parse_hex(a)?;
-    let b = parse_hex(b)?;
-
-    Some(a << 4 | b)
+    Some(ret)
 }
 
-pub fn from_hex_lower([a, b]: [u8; 2]) -> Option<u8> {
-    let parse_hex = |v: u8| -> Option<u8> {
-        let ret = match v {
-            b'0'..=b'9' => v - b'0',
-            b'a'..=b'f' => v - b'a' + 10,
-            _ => return None,
-        };
-
-        Some(ret)
+pub fn parse_quartet_lower(v: u8) -> Option<u8> {
+    let ret = match v {
+        b'0'..=b'9' => v - b'0',
+        b'a'..=b'f' => v - b'a' + 10,
+        _ => return None,
     };
 
-    let a = parse_hex(a)?;
-    let b = parse_hex(b)?;
-
-    Some(a << 4 | b)
+    Some(ret)
 }
 
-pub fn from_hex_upper([a, b]: [u8; 2]) -> Option<u8> {
-    let parse_hex = |v: u8| -> Option<u8> {
-        let ret = match v {
-            b'0'..=b'9' => v - b'0',
-            b'A'..=b'F' => v - b'A' + 10,
-            _ => return None,
-        };
-
-        Some(ret)
+pub fn parse_quartet_upper(v: u8) -> Option<u8> {
+    let ret = match v {
+        b'0'..=b'9' => v - b'0',
+        b'A'..=b'F' => v - b'A' + 10,
+        _ => return None,
     };
 
-    let a = parse_hex(a)?;
-    let b = parse_hex(b)?;
-
-    Some(a << 4 | b)
+    Some(ret)
 }
 
 pub fn to_hex_lower(v: u8) -> [u8; 2] {

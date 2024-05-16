@@ -7,16 +7,52 @@ use std::{
 
 use crate::{utils, Error};
 
+/// A hex string of specific length
+///
+/// [`HexString`] of length `N`, where `N` denotes the length of its internal
+/// array, not the length of its textual representation.
+///
+/// ## Example
+/// ```
+/// use hex_str::HexString;
+///
+/// // byte arrays are always valid
+/// let a = HexString::new([0x01, 0xde]);
+/// assert_eq!(a, "01de");
+/// assert_eq!(a, [0x01, 0xde]);
+///
+/// let b: HexString<2> = "01de".parse().unwrap();
+/// assert_eq!(a, b);
+/// ```
 #[repr(transparent)]
 #[derive(Clone, PartialEq, Eq, Hash)]
 pub struct HexString<const N: usize>([u8; N]);
 
 impl<const N: usize> HexString<N> {
+    /// Create a new `HexString`.
+    ///
+    /// # Example
+    /// ```
+    /// use hex_str::HexString;
+    ///
+    /// let v = HexString::new([0x1a, 0x2b, 0x3c, 0x4d]);
+    /// assert_eq!(v, [0x1a, 0x2b, 0x3c, 0x4d]);
+    /// assert_eq!(v, "1a2b3c4d");
+    /// ```
     #[must_use]
     pub fn new(v: impl Into<[u8; N]>) -> Self {
         Self(v.into())
     }
 
+    /// Convert the `HexString` to its string representation, lowercase.
+    ///
+    /// # Example
+    /// ```
+    /// use hex_str::HexString;
+    ///
+    /// let v: HexString::<4> = "1A2B3c4d".parse().unwrap();
+    /// assert_eq!(v.to_lower(), "1a2b3c4d");
+    /// ```
     #[must_use]
     pub fn to_lower(&self) -> String {
         self.0
@@ -27,6 +63,15 @@ impl<const N: usize> HexString<N> {
             .collect()
     }
 
+    /// Convert the `HexString` to its string representation, uppercase.
+    ///
+    /// # Example
+    /// ```
+    /// use hex_str::HexString;
+    ///
+    /// let v: HexString::<4> = "1A2B3c4d".parse().unwrap();
+    /// assert_eq!(v.to_upper(), "1A2B3C4D");
+    /// ```
     #[must_use]
     pub fn to_upper(&self) -> String {
         self.0
@@ -37,59 +82,100 @@ impl<const N: usize> HexString<N> {
             .collect()
     }
 
-    pub fn try_parse(v: impl AsRef<str>) -> Result<Self, Error> {
-        let v = v.as_ref();
-        if v.len() % 2 != 0 || v.len() / 2 != N {
-            return Err(Error::InvalidLength);
-        }
-
-        let mut bytes = v.bytes();
-        let mut ret = [0; N];
-        for v in &mut ret {
-            let a = bytes.next().unwrap();
-            let b = bytes.next().unwrap();
-
-            *v = utils::from_hex([a, b]).ok_or(Error::InvalidCharacter)?;
-        }
-
-        Ok(Self::new(ret))
+    /// Try to parse `v`, both lowercase and uppercase characters allowed.
+    ///
+    /// This is the same as using [`HexString::from_str`]/[`str::parse`] but
+    /// accepts `impl AsRef<[u8]>`.
+    ///
+    /// # Errors
+    /// - if `bytes.len() != 2*N`
+    /// - if `bytes` contains characters other than `[0-9a-fA-F]`
+    ///
+    /// # Example
+    /// ```
+    /// use hex_str::HexString;
+    ///
+    /// let v = HexString::<4>::try_parse("1A2B3c4d");
+    /// assert_eq!(v.unwrap(), "1a2b3c4d");
+    /// ```
+    pub fn try_parse(bytes: impl AsRef<[u8]>) -> Result<Self, Error> {
+        try_parse(bytes, utils::parse_quartet)
     }
 
-    pub fn try_parse_lower(v: impl AsRef<str>) -> Result<Self, Error> {
-        let v = v.as_ref();
-        if v.len() % 2 != 0 || v.len() / 2 != N {
-            return Err(Error::InvalidLength);
-        }
-
-        let mut bytes = v.bytes();
-        let mut ret = [0; N];
-        for v in &mut ret {
-            let a = bytes.next().unwrap();
-            let b = bytes.next().unwrap();
-
-            *v = utils::from_hex_lower([a, b]).ok_or(Error::InvalidCharacter)?;
-        }
-
-        Ok(Self::new(ret))
+    /// Try to parse `v`, only lowercase characters allowed.
+    ///
+    /// This is the same as using [`HexString::from_str`]/[`str::parse`] but
+    /// accepts `impl AsRef<[u8]>`.
+    ///
+    /// # Errors
+    /// - if `bytes.len() != 2*N`
+    /// - if `bytes` contains characters other than `[0-9a-f]`
+    ///
+    /// # Example
+    /// ```
+    /// use hex_str::{HexString, Error};
+    ///
+    /// let v = HexString::<4>::try_parse_lower("1a2b3c4d");
+    /// assert_eq!(v.unwrap(), "1a2b3c4d");
+    ///
+    /// let v = HexString::<4>::try_parse_lower("1A2B3C4D");
+    /// assert_eq!(v.unwrap_err(), Error::InvalidCharacter { v: b'A', index: 1 });
+    pub fn try_parse_lower(bytes: impl AsRef<[u8]>) -> Result<Self, Error> {
+        try_parse(bytes, utils::parse_quartet_lower)
     }
 
-    pub fn try_parse_upper(v: impl AsRef<str>) -> Result<Self, Error> {
-        let v = v.as_ref();
-        if v.len() % 2 != 0 || v.len() / 2 != N {
-            return Err(Error::InvalidLength);
-        }
-
-        let mut bytes = v.bytes();
-        let mut ret = [0; N];
-        for v in &mut ret {
-            let a = bytes.next().unwrap();
-            let b = bytes.next().unwrap();
-
-            *v = utils::from_hex_upper([a, b]).ok_or(Error::InvalidCharacter)?;
-        }
-
-        Ok(Self::new(ret))
+    /// Try to parse `v`, only uppercase characters allowed.
+    ///
+    /// This is the same as using [`HexString::from_str`]/[`str::parse`] but
+    /// accepts `impl AsRef<[u8]>`.
+    ///
+    /// # Errors
+    /// - if `bytes.len() != 2*N`
+    /// - if `bytes` contains characters other than `[0-9A-F]`
+    ///
+    /// # Example
+    /// ```
+    /// use hex_str::{HexString, Error};
+    ///
+    /// let v = HexString::<4>::try_parse_upper("1A2B3C4D");
+    /// assert_eq!(v.unwrap(), "1a2b3c4d");
+    ///
+    /// let v = HexString::<4>::try_parse_upper("1a2b3c4d");
+    /// assert_eq!(v.unwrap_err(), Error::InvalidCharacter { v: b'a', index: 1 });
+    pub fn try_parse_upper(bytes: impl AsRef<[u8]>) -> Result<Self, Error> {
+        try_parse(bytes, utils::parse_quartet_upper)
     }
+}
+
+fn try_parse<const N: usize>(
+    bytes: impl AsRef<[u8]>,
+    quartet_conversion_fn: impl Fn(u8) -> Option<u8>,
+) -> Result<HexString<N>, Error> {
+    let bytes = bytes.as_ref();
+    if bytes.len() % 2 != 0 || bytes.len() / 2 != N {
+        return Err(Error::InvalidLength {
+            expected: N * 2,
+            encountered: bytes.len(),
+        });
+    }
+
+    let mut ret = [0; N];
+    let mut i = 0;
+    let mut j = 1;
+    for v in &mut ret {
+        let a = unsafe { *bytes.get_unchecked(i) };
+        let a = quartet_conversion_fn(a).ok_or(Error::InvalidCharacter { v: a, index: i })?;
+
+        let b = unsafe { *bytes.get_unchecked(j) };
+        let b = quartet_conversion_fn(b).ok_or(Error::InvalidCharacter { v: b, index: j })?;
+
+        *v = a << 4 | b;
+
+        i = i.wrapping_add(2);
+        j = j.wrapping_add(2);
+    }
+
+    Ok(HexString::new(ret))
 }
 
 impl<const N: usize> Display for HexString<N> {
@@ -111,20 +197,7 @@ impl<const N: usize> FromStr for HexString<N> {
     type Err = Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        if s.len() % 2 != 0 || s.len() / 2 != N {
-            return Err(Error::InvalidLength);
-        }
-
-        let mut bytes = s.bytes();
-        let mut ret = [0; N];
-        for v in &mut ret {
-            let a = bytes.next().unwrap();
-            let b = bytes.next().unwrap();
-
-            *v = utils::from_hex([a, b]).ok_or(Error::InvalidCharacter)?;
-        }
-
-        Ok(Self::new(ret))
+        Self::try_parse(s)
     }
 }
 
@@ -177,18 +250,23 @@ impl<const N: usize> PartialEq<&[u8]> for HexString<N> {
 impl<const N: usize> PartialEq<str> for HexString<N> {
     fn eq(&self, other: &str) -> bool {
         if other.len() % 2 == 0 && other.len() / 2 == self.0.len() {
-            let mut bytes = other.bytes();
+            let bytes = other.as_bytes();
+            let mut i = 0;
+            let mut j = 1;
             for v in &self.0 {
-                let a = bytes.next().unwrap();
-                let b = bytes.next().unwrap();
-
-                let Some(w) = utils::from_hex([a, b]) else {
+                let Some(a) = utils::parse_quartet(unsafe { *bytes.get_unchecked(i) }) else {
+                    return false;
+                };
+                let Some(b) = utils::parse_quartet(unsafe { *bytes.get_unchecked(j) }) else {
                     return false;
                 };
 
-                if *v != w {
+                if *v != a << 4 | b {
                     return false;
                 }
+
+                i = i.wrapping_add(2);
+                j = j.wrapping_add(2);
             }
 
             true
