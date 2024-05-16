@@ -10,7 +10,7 @@
 //!
 //! ## Example:
 //! ```
-//! use hex_str::{HexString, Error};
+//! use hex_str::HexString;
 //!
 //! let s = "d41d8cd98f00b204e9800998ecf8427e";
 //! let v = HexString::<16>::try_parse(s).unwrap();
@@ -36,9 +36,9 @@
 //!     }
 //!
 //!     let s = r#"
-//!         {
-//!             "md5": "d41d8cd98f00b204e9800998ecf8427e"
-//!         }
+//!     {
+//!         "md5": "d41d8cd98f00b204e9800998ecf8427e"
+//!     }
 //!     "#;
 //!
 //!     let example: Example = serde_json::from_str(s).unwrap();
