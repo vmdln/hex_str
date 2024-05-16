@@ -12,7 +12,7 @@ use crate::{utils, Error};
 /// [`HexString`] of length `N`, where `N` denotes the length of its internal
 /// array, not the length of its textual representation.
 ///
-/// ## Example
+/// ## Example:
 /// ```
 /// use hex_str::HexString;
 ///
@@ -31,7 +31,7 @@ pub struct HexString<const N: usize>([u8; N]);
 impl<const N: usize> HexString<N> {
     /// Create a new `HexString`.
     ///
-    /// # Example
+    /// # Example:
     /// ```
     /// use hex_str::HexString;
     ///
@@ -46,7 +46,7 @@ impl<const N: usize> HexString<N> {
 
     /// Convert the `HexString` to its string representation, lowercase.
     ///
-    /// # Example
+    /// # Example:
     /// ```
     /// use hex_str::HexString;
     ///
@@ -65,7 +65,7 @@ impl<const N: usize> HexString<N> {
 
     /// Convert the `HexString` to its string representation, uppercase.
     ///
-    /// # Example
+    /// # Example:
     /// ```
     /// use hex_str::HexString;
     ///
@@ -91,7 +91,7 @@ impl<const N: usize> HexString<N> {
     /// - if `bytes.len() != 2*N`
     /// - if `bytes` contains characters other than `[0-9a-fA-F]`
     ///
-    /// # Example
+    /// # Example:
     /// ```
     /// use hex_str::HexString;
     ///
@@ -111,7 +111,7 @@ impl<const N: usize> HexString<N> {
     /// - if `bytes.len() != 2*N`
     /// - if `bytes` contains characters other than `[0-9a-f]`
     ///
-    /// # Example
+    /// # Example:
     /// ```
     /// use hex_str::{HexString, Error};
     ///
@@ -133,7 +133,7 @@ impl<const N: usize> HexString<N> {
     /// - if `bytes.len() != 2*N`
     /// - if `bytes` contains characters other than `[0-9A-F]`
     ///
-    /// # Example
+    /// # Example:
     /// ```
     /// use hex_str::{HexString, Error};
     ///

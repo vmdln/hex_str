@@ -8,14 +8,14 @@
 //! d41d8cd98f00b204e9800998ecf8427e
 //! ```
 //!
-//! ## Example
+//! ## Example:
 //! ```
 //! use hex_str::{HexString, Error};
 //!
-//! // parsing
 //! let s = "d41d8cd98f00b204e9800998ecf8427e";
-//! let v = HexString::<16>::try_parse(s);
-//! assert_eq!(v.unwrap(), "d41d8cd98f00b204e9800998ecf8427e");
+//! let v = HexString::<16>::try_parse(s).unwrap();
+//!
+//! assert_eq!(v, "d41d8cd98f00b204e9800998ecf8427e");
 //! ```
 
 //! ## Feature flags:
@@ -28,9 +28,9 @@
 //! #[cfg(feature = "serde")]
 //! {
 //!     use hex_str::HexString;
-//!     use serde::{Deserialize};
+//!     use serde::{Deserialize, Serialize};
 //!
-//!     #[derive(Deserialize)]
+//!     #[derive(Deserialize, Serialize)]
 //!     struct Example {
 //!         md5: HexString<16>,
 //!     }
@@ -43,6 +43,8 @@
 //!
 //!     let example: Example = serde_json::from_str(s).unwrap();
 //!     assert_eq!(example.md5, "d41d8cd98f00b204e9800998ecf8427e");
+//!
+//!     serde_json::to_string(&example).unwrap();
 //! }
 //! ```
 //!
