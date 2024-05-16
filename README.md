@@ -7,7 +7,7 @@ d41d8cd98f00b204e9800998ecf8427e
 
 ## Example:
 ```rust
-use hex_str::{HexString, Error};
+use hex_str::HexString;
 
 let s = "d41d8cd98f00b204e9800998ecf8427e";
 let v = HexString::<16>::try_parse(s).unwrap();
