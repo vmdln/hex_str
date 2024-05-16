@@ -207,6 +207,12 @@ impl<const N: usize> From<[u8; N]> for HexString<N> {
     }
 }
 
+impl<const N: usize> From<HexString<N>> for [u8; N] {
+    fn from(value: HexString<N>) -> Self {
+        value.0
+    }
+}
+
 impl<'a, const N: usize> TryFrom<&'a str> for HexString<N> {
     type Error = Error;
 
