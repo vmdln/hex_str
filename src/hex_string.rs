@@ -145,6 +145,39 @@ impl<const N: usize> HexString<N> {
     pub fn try_parse_upper(bytes: impl AsRef<[u8]>) -> Result<Self, Error> {
         try_parse(bytes, utils::parse_quartet_upper)
     }
+
+    /// Return a reference to the inner array.
+    ///
+    /// # Example:
+    /// ```
+    /// use hex_str::HexString;
+    ///
+    /// let v = HexString::new([0x1a, 0x2b]);
+    ///
+    /// assert_eq!(v.as_array(), &[0x1a, 0x2b]);
+    /// ```
+    #[must_use]
+    pub fn as_array(&self) -> &[u8; N] {
+        &self.0
+    }
+
+    /// Return a mutable reference to the inner array.
+    ///
+    /// # Example:
+    /// ```
+    /// use hex_str::HexString;
+    ///
+    /// let mut v = HexString::new([0x1a, 0x2b]);
+    /// let mut_array = v.as_mut_array();
+    ///
+    /// mut_array.iter_mut().for_each(|v| *v = 0);
+    ///
+    /// assert_eq!(v, "0000");
+    /// ```
+    #[must_use]
+    pub fn as_mut_array(&mut self) -> &mut [u8; N] {
+        &mut self.0
+    }
 }
 
 fn try_parse<const N: usize>(
