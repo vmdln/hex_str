@@ -82,7 +82,7 @@ impl<const N: usize> HexString<N> {
             .collect()
     }
 
-    /// Try to parse `value`, both lowercase and uppercase characters allowed.
+    /// Try to parse `bytes`, both lowercase and uppercase characters allowed.
     ///
     /// This is the same as using [`HexString::from_str`]/[`str::parse`] but
     /// accepts `impl AsRef<[u8]>`.
@@ -102,7 +102,7 @@ impl<const N: usize> HexString<N> {
         try_parse(bytes, utils::parse)
     }
 
-    /// Try to parse `value`, only lowercase characters allowed.
+    /// Try to parse `bytes`, only lowercase characters allowed.
     ///
     /// # Errors
     /// - if `bytes.len() != 2*N`
@@ -121,7 +121,7 @@ impl<const N: usize> HexString<N> {
         try_parse(bytes, utils::parse_lower)
     }
 
-    /// Try to parse `value`, only uppercase characters allowed.
+    /// Try to parse `bytes`, only uppercase characters allowed.
     ///
     /// # Errors
     /// - if `bytes.len() != 2*N`
