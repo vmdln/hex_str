@@ -5,6 +5,6 @@ pub enum Error {
     #[error("invalid input length, expected `{expected}`, encountered: `{encountered}`")]
     InvalidLength { expected: usize, encountered: usize },
     /// The input contained invalid character
-    #[error("invalid character `{v:02x}` encountered at index {index}")]
-    InvalidCharacter { v: u8, index: usize },
+    #[error("invalid octet `{a:02x}{b:02x}` encountered at index {index}")]
+    InvalidOctet { a: u8, b: u8, index: usize },
 }
