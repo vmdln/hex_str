@@ -99,7 +99,7 @@ impl<const N: usize> HexString<N> {
     /// assert_eq!(v.unwrap(), "1a2b3c4d");
     /// ```
     pub fn try_parse(bytes: impl AsRef<[u8]>) -> Result<Self, Error> {
-        try_parse(bytes, utils::parse_quartet)
+        try_parse(bytes, utils::parse)
     }
 
     /// Try to parse `value`, only lowercase characters allowed.
@@ -116,9 +116,9 @@ impl<const N: usize> HexString<N> {
     /// assert_eq!(v.unwrap(), "1a2b3c4d");
     ///
     /// let v = HexString::<4>::try_parse_lower("1A2B3C4D");
-    /// assert_eq!(v.unwrap_err(), Error::InvalidCharacter { v: b'A', index: 1 });
+    /// assert_eq!(v.unwrap_err(), Error::InvalidOctet { a: b'1', b: b'A', index: 0 });
     pub fn try_parse_lower(bytes: impl AsRef<[u8]>) -> Result<Self, Error> {
-        try_parse(bytes, utils::parse_quartet_lower)
+        try_parse(bytes, utils::parse_lower)
     }
 
     /// Try to parse `value`, only uppercase characters allowed.
@@ -135,9 +135,9 @@ impl<const N: usize> HexString<N> {
     /// assert_eq!(v.unwrap(), "1a2b3c4d");
     ///
     /// let v = HexString::<4>::try_parse_upper("1a2b3c4d");
-    /// assert_eq!(v.unwrap_err(), Error::InvalidCharacter { v: b'a', index: 1 });
+    /// assert_eq!(v.unwrap_err(), Error::InvalidOctet { a: b'1', b: b'a', index: 0 });
     pub fn try_parse_upper(bytes: impl AsRef<[u8]>) -> Result<Self, Error> {
-        try_parse(bytes, utils::parse_quartet_upper)
+        try_parse(bytes, utils::parse_upper)
     }
 
     /// Return a reference to the inner array.
@@ -176,7 +176,7 @@ impl<const N: usize> HexString<N> {
 
 fn try_parse<const N: usize>(
     bytes: impl AsRef<[u8]>,
-    quartet_conversion_fn: impl Fn(u8) -> Option<u8>,
+    conversion_fn: impl Fn(u8, u8) -> Option<u8>,
 ) -> Result<HexString<N>, Error> {
     let bytes = bytes.as_ref();
     if bytes.len() % 2 != 0 || bytes.len() / 2 != N {
@@ -191,13 +191,11 @@ fn try_parse<const N: usize>(
     let mut j = 1;
     for v in &mut ret {
         let a = unsafe { *bytes.get_unchecked(i) };
-        let a = quartet_conversion_fn(a).ok_or(Error::InvalidCharacter { v: a, index: i })?;
-
         let b = unsafe { *bytes.get_unchecked(j) };
-        let b = quartet_conversion_fn(b).ok_or(Error::InvalidCharacter { v: b, index: j })?;
+        *v = conversion_fn(a, b).ok_or(Error::InvalidOctet { a, b, index: i })?;
 
-        *v = a << 4 | b;
-
+        // if len == usize::MAX, this will overflow after the last iteration
+        // which is fine
         i = i.wrapping_add(2);
         j = j.wrapping_add(2);
     }
@@ -281,20 +279,21 @@ impl<const N: usize> PartialEq<&[u8]> for HexString<N> {
 }
 
 impl<const N: usize> PartialEq<str> for HexString<N> {
+    #[allow(clippy::many_single_char_names)]
     fn eq(&self, other: &str) -> bool {
         if other.len() % 2 == 0 && other.len() / 2 == self.0.len() {
             let bytes = other.as_bytes();
             let mut i = 0;
             let mut j = 1;
-            for v in &self.0 {
-                let Some(a) = utils::parse_quartet(unsafe { *bytes.get_unchecked(i) }) else {
-                    return false;
-                };
-                let Some(b) = utils::parse_quartet(unsafe { *bytes.get_unchecked(j) }) else {
+            for x in &self.0 {
+                let a = unsafe { *bytes.get_unchecked(i) };
+                let b = unsafe { *bytes.get_unchecked(j) };
+
+                let Some(y) = utils::parse(a, b) else {
                     return false;
                 };
 
-                if *v != a << 4 | b {
+                if *x != y {
                     return false;
                 }
 
