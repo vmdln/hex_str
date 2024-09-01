@@ -1,7 +1,9 @@
 use std::{
     borrow::{Borrow, BorrowMut},
     fmt::{Debug, Display},
+    mem::MaybeUninit,
     ops::{Deref, DerefMut},
+    ptr,
     str::FromStr,
 };
 
@@ -26,7 +28,7 @@ use crate::{utils, Error};
 /// ```
 #[repr(transparent)]
 #[derive(Clone, PartialEq, Eq, Hash)]
-pub struct HexString<const N: usize>([u8; N]);
+pub struct HexString<const N: usize>(Box<[u8; N]>);
 
 impl<const N: usize> HexString<N> {
     /// Create a new `HexString`.
@@ -40,7 +42,7 @@ impl<const N: usize> HexString<N> {
     /// assert_eq!(v, "1a2b3c4d");
     /// ```
     #[must_use]
-    pub fn new(v: impl Into<[u8; N]>) -> Self {
+    pub fn new(v: impl Into<Box<[u8; N]>>) -> Self {
         Self(v.into())
     }
 
@@ -186,13 +188,15 @@ fn try_parse<const N: usize>(
         });
     }
 
-    let mut ret = [0; N];
+    let mut ret: Box<[MaybeUninit<u8>; N]> = unsafe { Box::new_uninit().assume_init() };
     let mut i = 0;
     let mut j = 1;
-    for v in &mut ret {
+    for v in &mut *ret {
         let a = unsafe { *bytes.get_unchecked(i) };
         let b = unsafe { *bytes.get_unchecked(j) };
-        *v = conversion_fn(a, b).ok_or(Error::InvalidOctet { a, b, index: i })?;
+        conversion_fn(a, b)
+            .ok_or(Error::InvalidOctet { a, b, index: i })
+            .map(|w| v.write(w))?;
 
         // if len == usize::MAX, this will overflow after the last iteration
         // which is fine
@@ -200,6 +204,7 @@ fn try_parse<const N: usize>(
         j = j.wrapping_add(2);
     }
 
+    let ret: Box<[u8; N]> = unsafe { std::mem::transmute(ret) };
     Ok(HexString::new(ret))
 }
 
@@ -232,7 +237,13 @@ impl<const N: usize> From<[u8; N]> for HexString<N> {
     }
 }
 
-impl<const N: usize> From<HexString<N>> for [u8; N] {
+impl<const N: usize> From<Box<[u8; N]>> for HexString<N> {
+    fn from(value: Box<[u8; N]>) -> Self {
+        Self::new(value)
+    }
+}
+
+impl<const N: usize> From<HexString<N>> for Box<[u8; N]> {
     fn from(value: HexString<N>) -> Self {
         value.0
     }
@@ -256,25 +267,25 @@ impl<const N: usize> TryFrom<String> for HexString<N> {
 
 impl<const N: usize> PartialEq<[u8; N]> for HexString<N> {
     fn eq(&self, other: &[u8; N]) -> bool {
-        &self.0 == other
+        &*self.0 == other
     }
 }
 
 impl<const N: usize> PartialEq<&[u8; N]> for HexString<N> {
     fn eq(&self, other: &&[u8; N]) -> bool {
-        &self.0 == *other
+        &*self.0 == *other
     }
 }
 
 impl<const N: usize> PartialEq<[u8]> for HexString<N> {
     fn eq(&self, other: &[u8]) -> bool {
-        self.0 == other
+        *self.0 == other
     }
 }
 
 impl<const N: usize> PartialEq<&[u8]> for HexString<N> {
     fn eq(&self, other: &&[u8]) -> bool {
-        self.0 == *other
+        *self.0 == *other
     }
 }
 
@@ -285,7 +296,7 @@ impl<const N: usize> PartialEq<str> for HexString<N> {
             let bytes = other.as_bytes();
             let mut i = 0;
             let mut j = 1;
-            for x in &self.0 {
+            for x in &*self.0 {
                 let a = unsafe { *bytes.get_unchecked(i) };
                 let b = unsafe { *bytes.get_unchecked(j) };
 
@@ -360,25 +371,13 @@ impl<const N: usize> AsMut<[u8; N]> for HexString<N> {
 
 impl<const N: usize> AsRef<[u8]> for HexString<N> {
     fn as_ref(&self) -> &[u8] {
-        &self.0
+        &*self.0
     }
 }
 
 impl<const N: usize> AsMut<[u8]> for HexString<N> {
     fn as_mut(&mut self) -> &mut [u8] {
-        &mut self.0
-    }
-}
-
-impl<const N: usize> AsRef<HexString<N>> for [u8; N] {
-    fn as_ref(&self) -> &HexString<N> {
-        unsafe { &*(self as *const [u8; N]).cast() }
-    }
-}
-
-impl<const N: usize> AsMut<HexString<N>> for [u8; N] {
-    fn as_mut(&mut self) -> &mut HexString<N> {
-        unsafe { &mut *(self as *mut [u8; N]).cast() }
+        &mut *self.0
     }
 }
 
@@ -406,15 +405,17 @@ impl<const N: usize> BorrowMut<[u8]> for HexString<N> {
     }
 }
 
-impl<const N: usize> Borrow<HexString<N>> for [u8; N] {
+impl<const N: usize> Borrow<HexString<N>> for Box<[u8; N]> {
     fn borrow(&self) -> &HexString<N> {
-        self.as_ref()
+        // Safety: HexString is #[repr(transparent)]
+        unsafe { &*ptr::from_ref(self).cast() }
     }
 }
 
-impl<const N: usize> BorrowMut<HexString<N>> for [u8; N] {
+impl<const N: usize> BorrowMut<HexString<N>> for Box<[u8; N]> {
     fn borrow_mut(&mut self) -> &mut HexString<N> {
-        self.as_mut()
+        // Safety: HexString is #[repr(transparent)]
+        unsafe { &mut *ptr::from_mut(self).cast() }
     }
 }
 
@@ -460,6 +461,39 @@ impl<const N: usize> rand::distributions::Distribution<HexString<N>>
     for rand::distributions::Standard
 {
     fn sample<R: rand::Rng + ?Sized>(&self, rng: &mut R) -> HexString<N> {
-        HexString::new(rng.gen::<[u8; N]>())
+        let mut ret: Box<[MaybeUninit<u8>; N]> = unsafe { Box::new_uninit().assume_init() };
+        for v in &mut *ret {
+            v.write(rng.gen());
+        }
+
+        let ret: Box<[u8; N]> = unsafe { std::mem::transmute(ret) };
+        HexString::new(ret)
+    }
+}
+
+#[cfg(all(test, feature = "rand"))]
+mod tests {
+    use rand::seq::SliceRandom;
+
+    use super::HexString;
+
+    #[test]
+    fn big_rand() {
+        // 128 * 1024 + 1
+        let _: HexString<131_073> = dbg!(rand::random());
+    }
+
+    #[test]
+    fn big_hex() {
+        let mut rng = rand::thread_rng();
+        let v = (0..262_146).fold(String::new(), |mut acc, _| {
+            let v = *b"0123456789abcdefABCDEF".choose(&mut rng).unwrap();
+            acc.push(v.into());
+            acc
+        });
+
+        // 128 * 1024 + 1
+        let parsed: HexString<131_073> = v.parse().unwrap();
+        assert_eq!(parsed.to_lower(), v.to_lowercase());
     }
 }
