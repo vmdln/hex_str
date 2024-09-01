@@ -21,7 +21,7 @@
 //! ## Feature flags:
 //! - `serde` - adds the ability to serialize and deserialize a [`HexString`] using `serde`.
 //! - `rand` - adds implementation of `rand`'s [`Standard`](https://docs.rs/rand/0.8.4/rand/distributions/struct.Standard.html)
-//! distribution, which enables random generation of [`HexString`]'s directly.
+//!   distribution, which enables random generation of [`HexString`]'s directly.
 //!
 //! #### Using `serde` feature:
 //! ```
