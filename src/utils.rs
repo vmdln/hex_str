@@ -1,6 +1,6 @@
 pub fn parse(a: u8, b: u8) -> Option<u8> {
     #[rustfmt::skip]
-    static HEX_0: [i16; 256] = [
+    static HEX_LSB: [i16; 256] = [
         -1,  -1,  -1,  -1,  -1,  -1,  -1,  -1,  -1,  -1, -1, -1, -1, -1, -1, -1,
         -1,  -1,  -1,  -1,  -1,  -1,  -1,  -1,  -1,  -1, -1, -1, -1, -1, -1, -1,
         -1,  -1,  -1,  -1,  -1,  -1,  -1,  -1,  -1,  -1, -1, -1, -1, -1, -1, -1,
@@ -20,7 +20,7 @@ pub fn parse(a: u8, b: u8) -> Option<u8> {
     ];
 
     #[rustfmt::skip]
-    static HEX_1: [i16; 256] = [
+    static HEX_MSB: [i16; 256] = [
         -1,  -1,  -1,  -1,  -1,  -1,  -1,  -1,  -1,  -1, -1, -1, -1, -1, -1, -1,
         -1,  -1,  -1,  -1,  -1,  -1,  -1,  -1,  -1,  -1, -1, -1, -1, -1, -1, -1,
         -1,  -1,  -1,  -1,  -1,  -1,  -1,  -1,  -1,  -1, -1, -1, -1, -1, -1, -1,
@@ -39,12 +39,12 @@ pub fn parse(a: u8, b: u8) -> Option<u8> {
         -1,  -1,  -1,  -1,  -1,  -1,  -1,  -1,  -1,  -1, -1, -1, -1, -1, -1, -1,
     ];
 
-    unsafe { parse_(a, b, &HEX_0, &HEX_1) }
+    unsafe { parse_(a, b, &HEX_LSB, &HEX_MSB) }
 }
 
 pub fn parse_lower(a: u8, b: u8) -> Option<u8> {
     #[rustfmt::skip]
-    static HEX_0_LOWER: [i16; 256] = [
+    static HEX_LSB_LOWER: [i16; 256] = [
         -1,  -1,  -1,  -1,  -1,  -1,  -1,  -1,  -1,  -1, -1, -1, -1, -1, -1, -1,
         -1,  -1,  -1,  -1,  -1,  -1,  -1,  -1,  -1,  -1, -1, -1, -1, -1, -1, -1,
         -1,  -1,  -1,  -1,  -1,  -1,  -1,  -1,  -1,  -1, -1, -1, -1, -1, -1, -1,
@@ -64,7 +64,7 @@ pub fn parse_lower(a: u8, b: u8) -> Option<u8> {
     ];
 
     #[rustfmt::skip]
-    static HEX_1_LOWER: [i16; 256] = [
+    static HEX_MSB_LOWER: [i16; 256] = [
         -1,  -1,  -1,  -1,  -1,  -1,  -1,  -1,  -1,  -1, -1, -1, -1, -1, -1, -1,
         -1,  -1,  -1,  -1,  -1,  -1,  -1,  -1,  -1,  -1, -1, -1, -1, -1, -1, -1,
         -1,  -1,  -1,  -1,  -1,  -1,  -1,  -1,  -1,  -1, -1, -1, -1, -1, -1, -1,
@@ -83,12 +83,12 @@ pub fn parse_lower(a: u8, b: u8) -> Option<u8> {
         -1,  -1,  -1,  -1,  -1,  -1,  -1,  -1,  -1,  -1, -1, -1, -1, -1, -1, -1,
     ];
 
-    unsafe { parse_(a, b, &HEX_0_LOWER, &HEX_1_LOWER) }
+    unsafe { parse_(a, b, &HEX_LSB_LOWER, &HEX_MSB_LOWER) }
 }
 
 pub fn parse_upper(a: u8, b: u8) -> Option<u8> {
     #[rustfmt::skip]
-    static HEX_0_UPPER: [i16; 256] = [
+    static HEX_LSB_UPPER: [i16; 256] = [
         -1,  -1,  -1,  -1,  -1,  -1,  -1,  -1,  -1,  -1, -1, -1, -1, -1, -1, -1,
         -1,  -1,  -1,  -1,  -1,  -1,  -1,  -1,  -1,  -1, -1, -1, -1, -1, -1, -1,
         -1,  -1,  -1,  -1,  -1,  -1,  -1,  -1,  -1,  -1, -1, -1, -1, -1, -1, -1,
@@ -108,7 +108,7 @@ pub fn parse_upper(a: u8, b: u8) -> Option<u8> {
     ];
 
     #[rustfmt::skip]
-    static HEX_1_UPPER: [i16; 256] = [
+    static HEX_MSB_UPPER: [i16; 256] = [
         -1,  -1,  -1,  -1,  -1,  -1,  -1,  -1,  -1,  -1, -1, -1, -1, -1, -1, -1,
         -1,  -1,  -1,  -1,  -1,  -1,  -1,  -1,  -1,  -1, -1, -1, -1, -1, -1, -1,
         -1,  -1,  -1,  -1,  -1,  -1,  -1,  -1,  -1,  -1, -1, -1, -1, -1, -1, -1,
@@ -127,13 +127,14 @@ pub fn parse_upper(a: u8, b: u8) -> Option<u8> {
         -1,  -1,  -1,  -1,  -1,  -1,  -1,  -1,  -1,  -1, -1, -1, -1, -1, -1, -1,
     ];
 
-    unsafe { parse_(a, b, &HEX_0_UPPER, &HEX_1_UPPER) }
+    unsafe { parse_(a, b, &HEX_LSB_UPPER, &HEX_MSB_UPPER) }
 }
 
-#[allow(clippy::inline_always)]
+/// Safety: The values in lut's must be in range of `i16::MIN..256`
+#[allow(clippy::inline_always, clippy::similar_names)]
 #[inline(always)]
-unsafe fn parse_(a: u8, b: u8, lut_0: &[i16; 256], lut_1: &[i16; 256]) -> Option<u8> {
-    let v = lut_1[a as usize] | lut_0[b as usize];
+unsafe fn parse_(a: u8, b: u8, lut_lsb: &[i16; 256], lut_msb: &[i16; 256]) -> Option<u8> {
+    let v = lut_msb[a as usize] | lut_lsb[b as usize];
     if v < 0 {
         None
     } else {
