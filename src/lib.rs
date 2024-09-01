@@ -10,10 +10,10 @@
 //!
 //! ## Example:
 //! ```
-//! use hex_str::HexString;
+//! use hex_str::HexStringN;
 //!
 //! let s = "d41d8cd98f00b204e9800998ecf8427e";
-//! let v = HexString::<16>::try_parse(s).unwrap();
+//! let v = HexStringN::<16>::try_parse(s).unwrap();
 //!
 //! assert_eq!(v, "d41d8cd98f00b204e9800998ecf8427e");
 //! ```
@@ -60,7 +60,9 @@
 
 mod error;
 mod hex_string;
+mod hex_string_n;
 mod utils;
 
-pub use error::Error;
+pub use error::{HexStringError, HexStringNError};
 pub use hex_string::HexString;
+pub use hex_string_n::HexStringN;
