@@ -1,4 +1,5 @@
 /// An error that may occur when parsing hex strings
+#[allow(clippy::module_name_repetitions)]
 #[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
 pub enum HexStringNError {
     /// The input didn't have required length
@@ -10,6 +11,7 @@ pub enum HexStringNError {
 }
 
 /// An error that may occur when parsing hex strings
+#[allow(clippy::module_name_repetitions)]
 #[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
 pub enum HexStringError {
     /// The input didn't have required length
