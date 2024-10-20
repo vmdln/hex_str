@@ -9,10 +9,10 @@ use std::{
 
 use crate::{utils, HexStringNError};
 
-/// A hex string of specific length
+/// A hex string of constant length
 ///
-/// A hex string of length `N`, where `N` denotes the length of its internal
-/// array, not the length of its textual representation.
+/// A hex string of length `N`, where `N` denotes the length of its binary
+/// representation, not the length of its textual representation.
 /// For hex strings of variable length see [`HexString`](crate::HexString)
 ///
 /// ## Example:

@@ -1,11 +1,12 @@
 # `hex_str`
+Handle and parse hex strings of constant and variable lengths
+
+## Example:
 
 Example hex string, an md5 of an empty file:
 ```text
 d41d8cd98f00b204e9800998ecf8427e
 ```
-
-## Example:
 ```rust
 use hex_str::HexString;
 
