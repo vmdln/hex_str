@@ -39,7 +39,7 @@ pub fn parse(a: u8, b: u8) -> Option<u8> {
         -1,  -1,  -1,  -1,  -1,  -1,  -1,  -1,  -1,  -1, -1, -1, -1, -1, -1, -1,
     ];
 
-    unsafe { parse_(a, b, &HEX_LSB, &HEX_MSB) }
+    parse_(a, b, &HEX_LSB, &HEX_MSB)
 }
 
 pub fn parse_lower(a: u8, b: u8) -> Option<u8> {
@@ -83,7 +83,7 @@ pub fn parse_lower(a: u8, b: u8) -> Option<u8> {
         -1,  -1,  -1,  -1,  -1,  -1,  -1,  -1,  -1,  -1, -1, -1, -1, -1, -1, -1,
     ];
 
-    unsafe { parse_(a, b, &HEX_LSB_LOWER, &HEX_MSB_LOWER) }
+    parse_(a, b, &HEX_LSB_LOWER, &HEX_MSB_LOWER)
 }
 
 pub fn parse_upper(a: u8, b: u8) -> Option<u8> {
@@ -127,13 +127,13 @@ pub fn parse_upper(a: u8, b: u8) -> Option<u8> {
         -1,  -1,  -1,  -1,  -1,  -1,  -1,  -1,  -1,  -1, -1, -1, -1, -1, -1, -1,
     ];
 
-    unsafe { parse_(a, b, &HEX_LSB_UPPER, &HEX_MSB_UPPER) }
+    parse_(a, b, &HEX_LSB_UPPER, &HEX_MSB_UPPER)
 }
 
 /// Safety: The values in lut's must be in range of `i16::MIN..256`
 #[allow(clippy::inline_always, clippy::similar_names)]
 #[inline(always)]
-unsafe fn parse_(a: u8, b: u8, lut_lsb: &[i16; 256], lut_msb: &[i16; 256]) -> Option<u8> {
+fn parse_(a: u8, b: u8, lut_lsb: &[i16; 256], lut_msb: &[i16; 256]) -> Option<u8> {
     let v = lut_msb[a as usize] | lut_lsb[b as usize];
     if v < 0 {
         None
