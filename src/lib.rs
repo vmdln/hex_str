@@ -27,12 +27,12 @@
 //! ```
 //! #[cfg(feature = "serde")]
 //! {
-//!     use hex_str::HexString;
+//!     use hex_str::HexStringN;
 //!     use serde::{Deserialize, Serialize};
 //!
 //!     #[derive(Deserialize, Serialize)]
 //!     struct Example {
-//!         md5: HexString<16>,
+//!         md5: HexStringN<16>,
 //!     }
 //!
 //!     let s = r#"
@@ -52,9 +52,9 @@
 //! ```
 //! #[cfg(feature = "rand")]
 //! {
-//!     use hex_str::HexString;
+//!     use hex_str::HexStringN;
 //!
-//!     let _: HexString<16> = rand::random();
+//!     let _: HexStringN<16> = rand::random();
 //! }
 //! ```
 
