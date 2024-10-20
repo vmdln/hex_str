@@ -483,7 +483,7 @@ mod tests {
     #[test]
     fn big_rand() {
         // 128 * 1024 + 1
-        let _: HexStringN<131_073> = dbg!(rand::random());
+        let _: HexStringN<131_073> = rand::random();
     }
 
     #[test]
