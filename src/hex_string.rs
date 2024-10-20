@@ -395,20 +395,6 @@ impl<'de> serde::Deserialize<'de> for HexString {
             {
                 v.parse().map_err(|err| E::custom(err))
             }
-
-            fn visit_bytes<E>(self, v: &[u8]) -> Result<Self::Value, E>
-            where
-                E: serde::de::Error,
-            {
-                Ok(HexString::new(v))
-            }
-
-            fn visit_byte_buf<E>(self, v: Vec<u8>) -> Result<Self::Value, E>
-            where
-                E: serde::de::Error,
-            {
-                Ok(HexString::new(v))
-            }
         }
 
         deserializer.deserialize_str(Visitor)
