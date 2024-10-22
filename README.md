@@ -8,7 +8,7 @@ Example hex string, an md5 of an empty file:
 d41d8cd98f00b204e9800998ecf8427e
 ```
 ```rust
-use hex_str::HexString;
+use hex_str::{HexString, HexStringN};
 
 let s = "d41d8cd98f00b204e9800998ecf8427e";
 
