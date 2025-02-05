@@ -1,4 +1,4 @@
-pub fn parse(a: u8, b: u8) -> Option<u8> {
+pub fn parse(msb: u8, lsb: u8) -> Option<u8> {
     #[rustfmt::skip]
     static HEX_LSB: [i16; 256] = [
         -1,  -1,  -1,  -1,  -1,  -1,  -1,  -1,  -1,  -1, -1, -1, -1, -1, -1, -1,
@@ -39,10 +39,10 @@ pub fn parse(a: u8, b: u8) -> Option<u8> {
         -1,  -1,  -1,  -1,  -1,  -1,  -1,  -1,  -1,  -1, -1, -1, -1, -1, -1, -1,
     ];
 
-    parse_(a, b, &HEX_LSB, &HEX_MSB)
+    parse_(msb, lsb, &HEX_LSB, &HEX_MSB)
 }
 
-pub fn parse_lower(a: u8, b: u8) -> Option<u8> {
+pub fn parse_lower(msb: u8, lsb: u8) -> Option<u8> {
     #[rustfmt::skip]
     static HEX_LSB_LOWER: [i16; 256] = [
         -1,  -1,  -1,  -1,  -1,  -1,  -1,  -1,  -1,  -1, -1, -1, -1, -1, -1, -1,
@@ -83,10 +83,10 @@ pub fn parse_lower(a: u8, b: u8) -> Option<u8> {
         -1,  -1,  -1,  -1,  -1,  -1,  -1,  -1,  -1,  -1, -1, -1, -1, -1, -1, -1,
     ];
 
-    parse_(a, b, &HEX_LSB_LOWER, &HEX_MSB_LOWER)
+    parse_(msb, lsb, &HEX_LSB_LOWER, &HEX_MSB_LOWER)
 }
 
-pub fn parse_upper(a: u8, b: u8) -> Option<u8> {
+pub fn parse_upper(msb: u8, lsb: u8) -> Option<u8> {
     #[rustfmt::skip]
     static HEX_LSB_UPPER: [i16; 256] = [
         -1,  -1,  -1,  -1,  -1,  -1,  -1,  -1,  -1,  -1, -1, -1, -1, -1, -1, -1,
@@ -127,14 +127,13 @@ pub fn parse_upper(a: u8, b: u8) -> Option<u8> {
         -1,  -1,  -1,  -1,  -1,  -1,  -1,  -1,  -1,  -1, -1, -1, -1, -1, -1, -1,
     ];
 
-    parse_(a, b, &HEX_LSB_UPPER, &HEX_MSB_UPPER)
+    parse_(msb, lsb, &HEX_LSB_UPPER, &HEX_MSB_UPPER)
 }
 
-/// Safety: The values in lut's must be in range of `i16::MIN..256`
-#[allow(clippy::inline_always, clippy::similar_names)]
-#[inline(always)]
-fn parse_(a: u8, b: u8, lut_lsb: &[i16; 256], lut_msb: &[i16; 256]) -> Option<u8> {
-    let v = lut_msb[a as usize] | lut_lsb[b as usize];
+/// The values in lut's must be in range of `i16::MIN..256`
+#[allow(clippy::similar_names)]
+fn parse_(msb: u8, lsb: u8, lut_lsb: &[i16; 256], lut_msb: &[i16; 256]) -> Option<u8> {
+    let v = lut_msb[msb as usize] | lut_lsb[lsb as usize];
     if v < 0 {
         None
     } else {
@@ -145,33 +144,33 @@ fn parse_(a: u8, b: u8, lut_lsb: &[i16; 256], lut_msb: &[i16; 256]) -> Option<u8
 }
 
 pub fn to_hex_lower(v: u8) -> [u8; 2] {
-    let helper = |v: u8| -> u8 {
-        match v {
-            v @ 0..=9 => v + b'0',
-            v @ 10..=15 => v - 10 + b'a',
+    let helper = |x: u8| -> u8 {
+        match x {
+            number @ 0..=9 => number + b'0',
+            letter @ 10..=15 => letter - 10 + b'a',
             _ => unreachable!(),
         }
     };
 
-    let a = (v & 0xf0) >> 4;
-    let b = v & 0x0f;
+    let msb = (v & 0xf0) >> 4;
+    let lsb = v & 0x0f;
 
-    [helper(a), helper(b)]
+    [helper(msb), helper(lsb)]
 }
 
 pub fn to_hex_upper(v: u8) -> [u8; 2] {
-    let helper = |v: u8| -> u8 {
-        match v {
-            v @ 0..=9 => v + b'0',
-            v @ 10..=15 => v - 10 + b'A',
+    let helper = |x: u8| -> u8 {
+        match x {
+            number @ 0..=9 => number + b'0',
+            letter @ 10..=15 => letter - 10 + b'A',
             _ => unreachable!(),
         }
     };
 
-    let a = (v & 0xf0) >> 4;
-    let b = v & 0x0f;
+    let msb = (v & 0xf0) >> 4;
+    let lsb = v & 0x0f;
 
-    [helper(a), helper(b)]
+    [helper(msb), helper(lsb)]
 }
 
 #[cfg(test)]
@@ -199,14 +198,14 @@ mod tests {
                 let lower_a = to_lower(i).unwrap();
                 let lower_b = to_lower(j).unwrap();
 
-                let v = super::parse(lower_a, lower_b).unwrap();
-                assert_eq!(v, i * 16 + j);
+                let from_lower = super::parse(lower_a, lower_b).unwrap();
+                assert_eq!(from_lower, i * 16 + j);
 
                 let upper_a = to_upper(i).unwrap();
                 let upper_b = to_upper(j).unwrap();
 
-                let v = super::parse(upper_a, upper_b).unwrap();
-                assert_eq!(v, i * 16 + j);
+                let from_upper = super::parse(upper_a, upper_b).unwrap();
+                assert_eq!(from_upper, i * 16 + j);
             }
         }
     }
@@ -218,18 +217,18 @@ mod tests {
                 let lower_a = to_lower(i).unwrap();
                 let lower_b = to_lower(j).unwrap();
 
-                let v = super::parse_lower(lower_a, lower_b).unwrap();
-                assert_eq!(v, i * 16 + j);
+                let from_lower = super::parse_lower(lower_a, lower_b).unwrap();
+                assert_eq!(from_lower, i * 16 + j);
 
                 let upper_a = to_upper(i).unwrap();
                 let upper_b = to_upper(j).unwrap();
 
-                let v = super::parse_lower(upper_a, upper_b);
+                let from_upper = super::parse_lower(upper_a, upper_b);
                 if i < 10 && j < 10 {
                     // if we're dealing with `0..=9` then it'll parse correctly
-                    assert_eq!(v.unwrap(), i * 16 + j);
+                    assert_eq!(from_upper.unwrap(), i * 16 + j);
                 } else {
-                    assert!(v.is_none());
+                    assert!(from_upper.is_none());
                 }
             }
         }
@@ -242,19 +241,19 @@ mod tests {
                 let lower_a = to_lower(i).unwrap();
                 let lower_b = to_lower(j).unwrap();
 
-                let v = super::parse_upper(lower_a, lower_b);
+                let from_lower = super::parse_upper(lower_a, lower_b);
                 if i < 10 && j < 10 {
                     // if we're dealing with `0..=9` then it'll parse correctly
-                    assert_eq!(v.unwrap(), i * 16 + j);
+                    assert_eq!(from_lower.unwrap(), i * 16 + j);
                 } else {
-                    assert!(v.is_none());
+                    assert!(from_lower.is_none());
                 }
 
                 let upper_a = to_upper(i).unwrap();
                 let upper_b = to_upper(j).unwrap();
 
-                let v = super::parse_upper(upper_a, upper_b).unwrap();
-                assert_eq!(v, i * 16 + j);
+                let from_upper = super::parse_upper(upper_a, upper_b).unwrap();
+                assert_eq!(from_upper, i * 16 + j);
             }
         }
     }
