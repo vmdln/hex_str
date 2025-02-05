@@ -1,4 +1,4 @@
-pub fn parse(a: u8, b: u8) -> Option<u8> {
+pub fn parse(msb: u8, lsb: u8) -> Option<u8> {
     #[rustfmt::skip]
     static HEX_LSB: [i16; 256] = [
         -1,  -1,  -1,  -1,  -1,  -1,  -1,  -1,  -1,  -1, -1, -1, -1, -1, -1, -1,
@@ -39,10 +39,10 @@ pub fn parse(a: u8, b: u8) -> Option<u8> {
         -1,  -1,  -1,  -1,  -1,  -1,  -1,  -1,  -1,  -1, -1, -1, -1, -1, -1, -1,
     ];
 
-    parse_(a, b, &HEX_LSB, &HEX_MSB)
+    parse_(msb, lsb, &HEX_LSB, &HEX_MSB)
 }
 
-pub fn parse_lower(a: u8, b: u8) -> Option<u8> {
+pub fn parse_lower(msb: u8, lsb: u8) -> Option<u8> {
     #[rustfmt::skip]
     static HEX_LSB_LOWER: [i16; 256] = [
         -1,  -1,  -1,  -1,  -1,  -1,  -1,  -1,  -1,  -1, -1, -1, -1, -1, -1, -1,
@@ -83,10 +83,10 @@ pub fn parse_lower(a: u8, b: u8) -> Option<u8> {
         -1,  -1,  -1,  -1,  -1,  -1,  -1,  -1,  -1,  -1, -1, -1, -1, -1, -1, -1,
     ];
 
-    parse_(a, b, &HEX_LSB_LOWER, &HEX_MSB_LOWER)
+    parse_(msb, lsb, &HEX_LSB_LOWER, &HEX_MSB_LOWER)
 }
 
-pub fn parse_upper(a: u8, b: u8) -> Option<u8> {
+pub fn parse_upper(msb: u8, lsb: u8) -> Option<u8> {
     #[rustfmt::skip]
     static HEX_LSB_UPPER: [i16; 256] = [
         -1,  -1,  -1,  -1,  -1,  -1,  -1,  -1,  -1,  -1, -1, -1, -1, -1, -1, -1,
@@ -127,14 +127,13 @@ pub fn parse_upper(a: u8, b: u8) -> Option<u8> {
         -1,  -1,  -1,  -1,  -1,  -1,  -1,  -1,  -1,  -1, -1, -1, -1, -1, -1, -1,
     ];
 
-    parse_(a, b, &HEX_LSB_UPPER, &HEX_MSB_UPPER)
+    parse_(msb, lsb, &HEX_LSB_UPPER, &HEX_MSB_UPPER)
 }
 
-/// Safety: The values in lut's must be in range of `i16::MIN..256`
-#[allow(clippy::inline_always, clippy::similar_names)]
-#[inline(always)]
-fn parse_(a: u8, b: u8, lut_lsb: &[i16; 256], lut_msb: &[i16; 256]) -> Option<u8> {
-    let v = lut_msb[a as usize] | lut_lsb[b as usize];
+/// The values in lut's must be in range of `i16::MIN..256`
+#[allow(clippy::similar_names)]
+fn parse_(msb: u8, lsb: u8, lut_lsb: &[i16; 256], lut_msb: &[i16; 256]) -> Option<u8> {
+    let v = lut_msb[msb as usize] | lut_lsb[lsb as usize];
     if v < 0 {
         None
     } else {
@@ -153,10 +152,10 @@ pub fn to_hex_lower(v: u8) -> [u8; 2] {
         }
     };
 
-    let a = (v & 0xf0) >> 4;
-    let b = v & 0x0f;
+    let msb = (v & 0xf0) >> 4;
+    let lsb = v & 0x0f;
 
-    [helper(a), helper(b)]
+    [helper(msb), helper(lsb)]
 }
 
 pub fn to_hex_upper(v: u8) -> [u8; 2] {
@@ -168,10 +167,10 @@ pub fn to_hex_upper(v: u8) -> [u8; 2] {
         }
     };
 
-    let a = (v & 0xf0) >> 4;
-    let b = v & 0x0f;
+    let msb = (v & 0xf0) >> 4;
+    let lsb = v & 0x0f;
 
-    [helper(a), helper(b)]
+    [helper(msb), helper(lsb)]
 }
 
 #[cfg(test)]
