@@ -75,9 +75,11 @@
 
 mod error;
 mod hex_array;
+mod hex_slice;
 mod hex_vector;
 mod utils;
 
 pub use error::{HexArrayError, HexVectorError};
 pub use hex_array::HexArray;
+pub use hex_slice::HexSlice;
 pub use hex_vector::HexVector;
