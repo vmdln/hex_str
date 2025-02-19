@@ -1,3 +1,4 @@
+use core::ptr;
 use std::{
     borrow::{Borrow, BorrowMut},
     fmt::{Debug, Display},
@@ -5,7 +6,7 @@ use std::{
     str::FromStr,
 };
 
-use crate::{utils, HexVectorError};
+use crate::{utils, HexArray, HexSlice, HexVectorError};
 
 /// A hex string of variable length
 ///
@@ -43,44 +44,6 @@ impl HexVector {
         Self(v.into())
     }
 
-    /// Convert `self` to its string representation, lowercase.
-    ///
-    /// # Example:
-    /// ```
-    /// use hex_str::HexVector;
-    ///
-    /// let v: HexVector = "1A2B3c4d".parse().unwrap();
-    /// assert_eq!(v.to_lower(), "1a2b3c4d");
-    /// ```
-    #[must_use]
-    pub fn to_lower(&self) -> String {
-        self.0
-            .iter()
-            .copied()
-            .flat_map(utils::to_hex_lower)
-            .map(char::from)
-            .collect()
-    }
-
-    /// Convert `self` to its string representation, uppercase.
-    ///
-    /// # Example:
-    /// ```
-    /// use hex_str::HexVector;
-    ///
-    /// let v: HexVector = "1A2B3c4d".parse().unwrap();
-    /// assert_eq!(v.to_upper(), "1A2B3C4D");
-    /// ```
-    #[must_use]
-    pub fn to_upper(&self) -> String {
-        self.0
-            .iter()
-            .copied()
-            .flat_map(utils::to_hex_upper)
-            .map(char::from)
-            .collect()
-    }
-
     /// Try to parse `bytes`, both lowercase and uppercase characters allowed.
     ///
     /// This is the same as using [`HexVector::from_str`]/[`str::parse`] but
@@ -115,7 +78,7 @@ impl HexVector {
     /// assert_eq!(v.unwrap(), "1a2b3c4d");
     ///
     /// let v = HexVector::try_parse_lower("1A2B3C4D");
-    /// assert_eq!(v.unwrap_err(), HexVectorError::InvalidByte { a: b'1', b: b'A', index: 0 });
+    /// assert_eq!(v.unwrap_err(), HexVectorError::InvalidByte { msb: b'1', lsb: b'A', index: 0 });
     pub fn try_parse_lower(bytes: impl AsRef<[u8]>) -> Result<Self, HexVectorError> {
         try_parse(bytes, utils::parse_lower)
     }
@@ -134,7 +97,7 @@ impl HexVector {
     /// assert_eq!(v.unwrap(), "1a2b3c4d");
     ///
     /// let v = HexVector::try_parse_upper("1a2b3c4d");
-    /// assert_eq!(v.unwrap_err(), HexVectorError::InvalidByte { a: b'1', b: b'a', index: 0 });
+    /// assert_eq!(v.unwrap_err(), HexVectorError::InvalidByte { msb: b'1', lsb: b'a', index: 0 });
     pub fn try_parse_upper(bytes: impl AsRef<[u8]>) -> Result<Self, HexVectorError> {
         try_parse(bytes, utils::parse_upper)
     }
@@ -156,25 +119,37 @@ impl HexVector {
     pub fn as_mut_vec(&mut self) -> &mut Vec<u8> {
         &mut self.0
     }
+
+    #[must_use]
+    pub fn as_hex_slice(&self) -> &HexSlice {
+        // Safety: `HexSlice` is `#[repr(transparent)]` `[u8]`
+        unsafe { &*(ptr::from_ref(self.0.as_slice()) as *const HexSlice) }
+    }
+
+    #[must_use]
+    pub fn as_mut_hex_slice(&mut self) -> &mut HexSlice {
+        // Safety: `HexSlice` is `#[repr(transparent)]` `[u8]`
+        unsafe { &mut *(ptr::from_mut(self.0.as_mut_slice()) as *mut HexSlice) }
+    }
 }
 
 fn try_parse(
     bytes: impl AsRef<[u8]>,
     conversion_fn: impl Fn(u8, u8) -> Option<u8>,
 ) -> Result<HexVector, HexVectorError> {
-    let bytes = bytes.as_ref();
-    if bytes.len() % 2 != 0 {
+    let bytes_cast = bytes.as_ref();
+    if bytes_cast.len() % 2 != 0 {
         return Err(HexVectorError::InvalidLength {
-            encountered: bytes.len(),
+            encountered: bytes_cast.len(),
         });
     }
 
-    let mut ret = Vec::with_capacity(bytes.len() / 2);
+    let mut ret = Vec::with_capacity(bytes_cast.len() / 2);
     let mut i = 0;
     let mut j = 1;
     for _ in 0..ret.capacity() {
-        let msb = unsafe { *bytes.get_unchecked(i) };
-        let lsb = unsafe { *bytes.get_unchecked(j) };
+        let msb = unsafe { *bytes_cast.get_unchecked(i) };
+        let lsb = unsafe { *bytes_cast.get_unchecked(j) };
         conversion_fn(msb, lsb)
             .ok_or(HexVectorError::InvalidByte { msb, lsb, index: i })
             .map(|w| ret.push(w))?;
@@ -228,10 +203,10 @@ impl From<HexVector> for Vec<u8> {
     }
 }
 
-impl TryFrom<&'_ str> for HexVector {
+impl TryFrom<&str> for HexVector {
     type Error = HexVectorError;
 
-    fn try_from(value: &'_ str) -> Result<Self, Self::Error> {
+    fn try_from(value: &str) -> Result<Self, Self::Error> {
         value.parse()
     }
 }
@@ -244,27 +219,27 @@ impl TryFrom<String> for HexVector {
     }
 }
 
+impl PartialEq<HexSlice> for HexVector {
+    fn eq(&self, other: &HexSlice) -> bool {
+        self == other.as_slice()
+    }
+}
+
+impl<const N: usize> PartialEq<HexArray<N>> for HexVector {
+    fn eq(&self, other: &HexArray<N>) -> bool {
+        self == other.as_hex_slice()
+    }
+}
+
 impl<const N: usize> PartialEq<[u8; N]> for HexVector {
     fn eq(&self, other: &[u8; N]) -> bool {
         &*self.0 == other
     }
 }
 
-impl<const N: usize> PartialEq<&[u8; N]> for HexVector {
-    fn eq(&self, other: &&[u8; N]) -> bool {
-        &*self.0 == *other
-    }
-}
-
 impl PartialEq<[u8]> for HexVector {
     fn eq(&self, other: &[u8]) -> bool {
         self.0 == other
-    }
-}
-
-impl PartialEq<&[u8]> for HexVector {
-    fn eq(&self, other: &&[u8]) -> bool {
-        self.0 == *other
     }
 }
 
@@ -313,16 +288,31 @@ impl PartialEq<String> for HexVector {
 }
 
 impl Deref for HexVector {
-    type Target = Vec<u8>;
+    type Target = HexSlice;
 
     fn deref(&self) -> &Self::Target {
-        &self.0
+        HexSlice::new(self.0.as_slice())
     }
 }
 
 impl DerefMut for HexVector {
     fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.0
+        HexSlice::new_mut(self.0.as_mut_slice())
+    }
+}
+
+// HexSlice
+impl AsRef<HexSlice> for HexVector {
+    fn as_ref(&self) -> &HexSlice {
+        // Safety: `HexSlice` is `#[repr(transparent)]` `[u8]`
+        unsafe { &*(ptr::from_ref(self.0.as_slice()) as *const HexSlice) }
+    }
+}
+
+impl AsMut<HexSlice> for HexVector {
+    fn as_mut(&mut self) -> &mut HexSlice {
+        // Safety: `HexSlice` is `#[repr(transparent)]` `[u8]`
+        unsafe { &mut *(ptr::from_mut(self.0.as_mut_slice()) as *mut HexSlice) }
     }
 }
 
@@ -350,15 +340,27 @@ impl AsMut<[u8]> for HexVector {
     }
 }
 
+impl Borrow<HexSlice> for HexVector {
+    fn borrow(&self) -> &HexSlice {
+        self.as_hex_slice()
+    }
+}
+
+impl BorrowMut<HexSlice> for HexVector {
+    fn borrow_mut(&mut self) -> &mut HexSlice {
+        self.as_mut_hex_slice()
+    }
+}
+
 impl Borrow<Vec<u8>> for HexVector {
     fn borrow(&self) -> &Vec<u8> {
-        self
+        &self.0
     }
 }
 
 impl BorrowMut<Vec<u8>> for HexVector {
     fn borrow_mut(&mut self) -> &mut Vec<u8> {
-        self
+        &mut self.0
     }
 }
 

@@ -1,13 +1,13 @@
+use core::{mem, ptr};
 use std::{
     borrow::{Borrow, BorrowMut},
     fmt::{Debug, Display},
     mem::MaybeUninit,
     ops::{Deref, DerefMut},
-    ptr,
     str::FromStr,
 };
 
-use crate::{utils, HexArrayError};
+use crate::{utils, HexArrayError, HexSlice, HexVector};
 
 /// A hex string of constant length
 ///
@@ -21,7 +21,7 @@ use crate::{utils, HexArrayError};
 ///
 /// // byte arrays are always valid
 /// let a = HexArray::new([0x01, 0xde]);
-/// assert_eq!(a, "01de");
+/// assert_eq!(a, *"01de");
 /// assert_eq!(a, [0x01, 0xde]);
 ///
 /// let b: HexArray<2> = "01de".parse().unwrap();
@@ -40,7 +40,7 @@ impl<const N: usize> HexArray<N> {
     ///
     /// let v = HexArray::new([0x1a, 0x2b, 0x3c, 0x4d]);
     /// assert_eq!(v, [0x1a, 0x2b, 0x3c, 0x4d]);
-    /// assert_eq!(v, "1a2b3c4d");
+    /// assert_eq!(v, *"1a2b3c4d");
     /// ```
     #[must_use]
     pub fn new(v: impl Into<[u8; N]>) -> Self {
@@ -55,49 +55,11 @@ impl<const N: usize> HexArray<N> {
     ///
     /// let v = HexArray::new_boxed([0x1a, 0x2b, 0x3c, 0x4d]);
     /// assert_eq!(*v, [0x1a, 0x2b, 0x3c, 0x4d]);
-    /// assert_eq!(*v, "1a2b3c4d");
+    /// assert_eq!(*v, *"1a2b3c4d");
     /// ```
     #[must_use]
     pub fn new_boxed(v: impl Into<Box<[u8; N]>>) -> Box<Self> {
-        unsafe { core::mem::transmute(v.into()) }
-    }
-
-    /// Convert `self` to its string representation, lowercase.
-    ///
-    /// # Example:
-    /// ```
-    /// use hex_str::HexArray;
-    ///
-    /// let v: HexArray::<4> = "1A2B3c4d".parse().unwrap();
-    /// assert_eq!(v.to_lower(), "1a2b3c4d");
-    /// ```
-    #[must_use]
-    pub fn to_lower(&self) -> String {
-        self.0
-            .iter()
-            .copied()
-            .flat_map(utils::to_hex_lower)
-            .map(char::from)
-            .collect()
-    }
-
-    /// Convert `self` to its string representation, uppercase.
-    ///
-    /// # Example:
-    /// ```
-    /// use hex_str::HexArray;
-    ///
-    /// let v: HexArray::<4> = "1A2B3c4d".parse().unwrap();
-    /// assert_eq!(v.to_upper(), "1A2B3C4D");
-    /// ```
-    #[must_use]
-    pub fn to_upper(&self) -> String {
-        self.0
-            .iter()
-            .copied()
-            .flat_map(utils::to_hex_upper)
-            .map(char::from)
-            .collect()
+        unsafe { mem::transmute(v.into()) }
     }
 
     /// Try to parse `bytes`, both lowercase and uppercase characters allowed.
@@ -114,7 +76,7 @@ impl<const N: usize> HexArray<N> {
     /// use hex_str::HexArray;
     ///
     /// let v = HexArray::<4>::try_parse("1A2B3c4d");
-    /// assert_eq!(v.unwrap(), "1a2b3c4d");
+    /// assert_eq!(v.unwrap(), *"1a2b3c4d");
     /// ```
     pub fn try_parse(bytes: impl AsRef<[u8]>) -> Result<Self, HexArrayError> {
         try_parse(bytes, utils::parse)
@@ -135,7 +97,7 @@ impl<const N: usize> HexArray<N> {
     /// use hex_str::HexArray;
     ///
     /// let v = HexArray::<4>::try_parse_boxed("1A2B3c4d");
-    /// assert_eq!(*v.unwrap(), "1a2b3c4d");
+    /// assert_eq!(*v.unwrap(), *"1a2b3c4d");
     /// ```
     pub fn try_parse_boxed(bytes: impl AsRef<[u8]>) -> Result<Box<Self>, HexArrayError> {
         try_parse_boxed(bytes, utils::parse)
@@ -152,7 +114,7 @@ impl<const N: usize> HexArray<N> {
     /// use hex_str::{HexArray, HexArrayError};
     ///
     /// let v = HexArray::<4>::try_parse_lower("1a2b3c4d");
-    /// assert_eq!(v.unwrap(), "1a2b3c4d");
+    /// assert_eq!(v.unwrap(), *"1a2b3c4d");
     ///
     /// let v = HexArray::<4>::try_parse_lower("1A2B3C4D");
     /// assert_eq!(v.unwrap_err(), HexArrayError::InvalidByte { msb: b'1', lsb: b'A', index: 0 });
@@ -172,7 +134,7 @@ impl<const N: usize> HexArray<N> {
     /// use hex_str::{HexArray, HexArrayError};
     ///
     /// let v = HexArray::<4>::try_parse_lower_boxed("1a2b3c4d");
-    /// assert_eq!(*v.unwrap(), "1a2b3c4d");
+    /// assert_eq!(*v.unwrap(), *"1a2b3c4d");
     ///
     /// let v = HexArray::<4>::try_parse_lower_boxed("1A2B3C4D");
     /// assert_eq!(v.unwrap_err(), HexArrayError::InvalidByte { msb: b'1', lsb: b'A', index: 0 });
@@ -191,7 +153,7 @@ impl<const N: usize> HexArray<N> {
     /// use hex_str::{HexArray, HexArrayError};
     ///
     /// let v = HexArray::<4>::try_parse_upper("1A2B3C4D");
-    /// assert_eq!(v.unwrap(), "1a2b3c4d");
+    /// assert_eq!(v.unwrap(), *"1a2b3c4d");
     ///
     /// let v = HexArray::<4>::try_parse_upper("1a2b3c4d");
     /// assert_eq!(v.unwrap_err(), HexArrayError::InvalidByte { msb: b'1', lsb: b'a', index: 0 });
@@ -211,7 +173,7 @@ impl<const N: usize> HexArray<N> {
     /// use hex_str::{HexArray, HexArrayError};
     ///
     /// let v = HexArray::<4>::try_parse_upper_boxed("1A2B3C4D");
-    /// assert_eq!(*v.unwrap(), "1a2b3c4d");
+    /// assert_eq!(*v.unwrap(), *"1a2b3c4d");
     ///
     /// let v = HexArray::<4>::try_parse_upper_boxed("1a2b3c4d");
     /// assert_eq!(v.unwrap_err(), HexArrayError::InvalidByte { msb: b'1', lsb: b'a', index: 0 });
@@ -245,11 +207,23 @@ impl<const N: usize> HexArray<N> {
     ///
     /// mut_array.iter_mut().for_each(|v| *v = 0);
     ///
-    /// assert_eq!(v, "0000");
+    /// assert_eq!(v, *"0000");
     /// ```
     #[must_use]
     pub fn as_mut_array(&mut self) -> &mut [u8; N] {
         &mut self.0
+    }
+
+    #[must_use]
+    pub fn as_hex_slice(&self) -> &HexSlice {
+        // Safety: `HexSlice` is `#[repr(transparent)]` `[u8]`
+        unsafe { &*(ptr::from_ref(self.0.as_slice()) as *const HexSlice) }
+    }
+
+    #[must_use]
+    pub fn as_mut_hex_slice(&mut self) -> &mut HexSlice {
+        // Safety: `HexSlice` is `#[repr(transparent)]` `[u8]`
+        unsafe { &mut *(ptr::from_mut(self.0.as_mut_slice()) as *mut HexSlice) }
     }
 }
 
@@ -257,20 +231,20 @@ fn try_parse<const N: usize>(
     bytes: impl AsRef<[u8]>,
     conversion_fn: impl Fn(u8, u8) -> Option<u8>,
 ) -> Result<HexArray<N>, HexArrayError> {
-    let bytes = bytes.as_ref();
-    if bytes.len() % 2 != 0 || bytes.len() / 2 != N {
+    let bytes_ref = bytes.as_ref();
+    if bytes_ref.len() % 2 != 0 || bytes_ref.len() / 2 != N {
         return Err(HexArrayError::InvalidLength {
             expected: N * 2,
-            encountered: bytes.len(),
+            encountered: bytes_ref.len(),
         });
     }
 
-    let mut ret = [MaybeUninit::<u8>::uninit(); N];
+    let mut uninitialized = [MaybeUninit::<u8>::uninit(); N];
     let mut i = 0;
     let mut j = 1;
-    for v in &mut ret {
-        let msb = unsafe { *bytes.get_unchecked(i) };
-        let lsb = unsafe { *bytes.get_unchecked(j) };
+    for v in &mut uninitialized {
+        let msb = unsafe { *bytes_ref.get_unchecked(i) };
+        let lsb = unsafe { *bytes_ref.get_unchecked(j) };
         conversion_fn(msb, lsb)
             .ok_or(HexArrayError::InvalidByte { msb, lsb, index: i })
             .map(|w| v.write(w))?;
@@ -283,23 +257,23 @@ fn try_parse<const N: usize>(
 
     // we can't use `core::mem::transmute` here due to
     // https://github.com/rust-lang/rust/issues/61956
-    let ret = unsafe { ret.as_ptr().cast::<[u8; N]>().read() };
-    Ok(HexArray::new(ret))
+    let initialized = unsafe { uninitialized.as_ptr().cast::<[u8; N]>().read() };
+    Ok(HexArray::new(initialized))
 }
 
 fn try_parse_boxed<const N: usize>(
     bytes: impl AsRef<[u8]>,
     conversion_fn: impl Fn(u8, u8) -> Option<u8>,
 ) -> Result<Box<HexArray<N>>, HexArrayError> {
-    let bytes = bytes.as_ref();
-    if bytes.len() % 2 != 0 || bytes.len() / 2 != N {
+    let bytes_ref = bytes.as_ref();
+    if bytes_ref.len() % 2 != 0 || bytes_ref.len() / 2 != N {
         return Err(HexArrayError::InvalidLength {
             expected: N * 2,
-            encountered: bytes.len(),
+            encountered: bytes_ref.len(),
         });
     }
 
-    let mut ret: Box<[MaybeUninit<u8>; N]> = unsafe { Box::new_uninit().assume_init() };
+    let mut uninitialized: Box<[MaybeUninit<u8>; N]> = unsafe { Box::new_uninit().assume_init() };
     // for (n, (v, (msb, lsb))) in ret
     //     .iter_mut()
     //     .zip(bytes.iter().copied().tuples())
@@ -311,9 +285,9 @@ fn try_parse_boxed<const N: usize>(
     // }
     let mut i = 0;
     let mut j = 1;
-    for v in &mut *ret {
-        let msb = unsafe { *bytes.get_unchecked(i) };
-        let lsb = unsafe { *bytes.get_unchecked(j) };
+    for v in &mut *uninitialized {
+        let msb = unsafe { *bytes_ref.get_unchecked(i) };
+        let lsb = unsafe { *bytes_ref.get_unchecked(j) };
         conversion_fn(msb, lsb)
             .ok_or(HexArrayError::InvalidByte { msb, lsb, index: i })
             .map(|w| v.write(w))?;
@@ -324,8 +298,8 @@ fn try_parse_boxed<const N: usize>(
         j = j.wrapping_add(2);
     }
 
-    let ret: Box<[u8; N]> = unsafe { core::mem::transmute(ret) };
-    Ok(HexArray::new_boxed(ret))
+    let initialized: Box<[u8; N]> = unsafe { mem::transmute(uninitialized) };
+    Ok(HexArray::new_boxed(initialized))
 }
 
 impl<const N: usize> Display for HexArray<N> {
@@ -365,7 +339,8 @@ impl<const N: usize> From<Box<[u8; N]>> for Box<HexArray<N>> {
 
 impl<const N: usize> From<Box<HexArray<N>>> for Box<[u8; N]> {
     fn from(value: Box<HexArray<N>>) -> Self {
-        unsafe { core::mem::transmute(value) }
+        // Safety: `HexArray` is `#[repr(transparent)]` `[u8; N]`
+        unsafe { mem::transmute(value) }
     }
 }
 
@@ -385,27 +360,28 @@ impl<const N: usize> TryFrom<String> for HexArray<N> {
     }
 }
 
+// PartialEq
+impl<const N: usize> PartialEq<HexSlice> for HexArray<N> {
+    fn eq(&self, other: &HexSlice) -> bool {
+        self == other.as_slice()
+    }
+}
+
+impl<const N: usize> PartialEq<HexVector> for HexArray<N> {
+    fn eq(&self, other: &HexVector) -> bool {
+        self == other.as_hex_slice()
+    }
+}
+
 impl<const N: usize> PartialEq<[u8; N]> for HexArray<N> {
     fn eq(&self, other: &[u8; N]) -> bool {
         self.0 == *other
     }
 }
 
-impl<const N: usize> PartialEq<&[u8; N]> for HexArray<N> {
-    fn eq(&self, other: &&[u8; N]) -> bool {
-        self.0 == **other
-    }
-}
-
 impl<const N: usize> PartialEq<[u8]> for HexArray<N> {
     fn eq(&self, other: &[u8]) -> bool {
         self.0 == other
-    }
-}
-
-impl<const N: usize> PartialEq<&[u8]> for HexArray<N> {
-    fn eq(&self, other: &&[u8]) -> bool {
-        self.0 == *other
     }
 }
 
@@ -441,12 +417,6 @@ impl<const N: usize> PartialEq<str> for HexArray<N> {
     }
 }
 
-impl<const N: usize> PartialEq<&str> for HexArray<N> {
-    fn eq(&self, other: &&str) -> bool {
-        self == *other
-    }
-}
-
 impl<const N: usize> PartialEq<String> for HexArray<N> {
     fn eq(&self, other: &String) -> bool {
         self == other.as_str()
@@ -454,19 +424,20 @@ impl<const N: usize> PartialEq<String> for HexArray<N> {
 }
 
 impl<const N: usize> Deref for HexArray<N> {
-    type Target = [u8; N];
+    type Target = HexSlice;
 
     fn deref(&self) -> &Self::Target {
-        &self.0
+        self.as_hex_slice()
     }
 }
 
 impl<const N: usize> DerefMut for HexArray<N> {
     fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.0
+        self.as_mut_hex_slice()
     }
 }
 
+// AsRef/Asmut
 impl<const N: usize> AsRef<HexArray<N>> for HexArray<N> {
     fn as_ref(&self) -> &HexArray<N> {
         self
@@ -479,6 +450,20 @@ impl<const N: usize> AsMut<HexArray<N>> for HexArray<N> {
     }
 }
 
+// HexArray -> HexSlice
+impl<const N: usize> AsRef<HexSlice> for HexArray<N> {
+    fn as_ref(&self) -> &HexSlice {
+        self.as_hex_slice()
+    }
+}
+
+impl<const N: usize> AsMut<HexSlice> for HexArray<N> {
+    fn as_mut(&mut self) -> &mut HexSlice {
+        self.as_mut_hex_slice()
+    }
+}
+
+// HexArray -> [u8; N]
 impl<const N: usize> AsRef<[u8; N]> for HexArray<N> {
     fn as_ref(&self) -> &[u8; N] {
         &self.0
@@ -491,6 +476,7 @@ impl<const N: usize> AsMut<[u8; N]> for HexArray<N> {
     }
 }
 
+// HexArray -> [u8]
 impl<const N: usize> AsRef<[u8]> for HexArray<N> {
     fn as_ref(&self) -> &[u8] {
         &self.0
@@ -503,27 +489,55 @@ impl<const N: usize> AsMut<[u8]> for HexArray<N> {
     }
 }
 
+// [u8; N] -> HexArray
+impl<const N: usize> AsRef<HexArray<N>> for [u8; N] {
+    fn as_ref(&self) -> &HexArray<N> {
+        // Safety: `HexArray` is `#[repr(transparent)]` `[u8; N]`
+        unsafe { &*ptr::from_ref(self).cast() }
+    }
+}
+
+impl<const N: usize> AsMut<HexArray<N>> for [u8; N] {
+    fn as_mut(&mut self) -> &mut HexArray<N> {
+        // Safety: `HexArray` is `#[repr(transparent)]` `[u8; N]`
+        unsafe { &mut *ptr::from_mut(self).cast() }
+    }
+}
+
+// Borrow
+impl<const N: usize> Borrow<HexSlice> for HexArray<N> {
+    fn borrow(&self) -> &HexSlice {
+        self.as_hex_slice()
+    }
+}
+
+impl<const N: usize> BorrowMut<HexSlice> for HexArray<N> {
+    fn borrow_mut(&mut self) -> &mut HexSlice {
+        self.as_mut_hex_slice()
+    }
+}
+
 impl<const N: usize> Borrow<[u8; N]> for HexArray<N> {
     fn borrow(&self) -> &[u8; N] {
-        self
+        &self.0
     }
 }
 
 impl<const N: usize> BorrowMut<[u8; N]> for HexArray<N> {
     fn borrow_mut(&mut self) -> &mut [u8; N] {
-        self
+        &mut self.0
     }
 }
 
 impl<const N: usize> Borrow<[u8]> for HexArray<N> {
     fn borrow(&self) -> &[u8] {
-        self.as_slice()
+        self.0.as_slice()
     }
 }
 
 impl<const N: usize> BorrowMut<[u8]> for HexArray<N> {
     fn borrow_mut(&mut self) -> &mut [u8] {
-        self.as_mut_slice()
+        self.0.as_mut_slice()
     }
 }
 
@@ -583,15 +597,15 @@ impl<const N: usize> rand::distributions::Distribution<HexArray<N>>
     for rand::distributions::Standard
 {
     fn sample<R: rand::Rng + ?Sized>(&self, rng: &mut R) -> HexArray<N> {
-        let mut ret = [MaybeUninit::<u8>::uninit(); N];
-        for v in &mut ret {
+        let mut uninitialized = [MaybeUninit::<u8>::uninit(); N];
+        for v in &mut uninitialized {
             v.write(rng.gen());
         }
 
         // we can't use `core::mem::transmute` here due to
         // https://github.com/rust-lang/rust/issues/61956
-        let ret = unsafe { ret.as_ptr().cast::<[u8; N]>().read() };
-        HexArray::new(ret)
+        let initialized = unsafe { uninitialized.as_ptr().cast::<[u8; N]>().read() };
+        HexArray::new(initialized)
     }
 }
 
@@ -600,13 +614,14 @@ impl<const N: usize> rand::distributions::Distribution<Box<HexArray<N>>>
     for rand::distributions::Standard
 {
     fn sample<R: rand::Rng + ?Sized>(&self, rng: &mut R) -> Box<HexArray<N>> {
-        let mut ret: Box<[MaybeUninit<u8>; N]> = unsafe { Box::new_uninit().assume_init() };
-        for v in &mut *ret {
+        let mut uninitialized: Box<[MaybeUninit<u8>; N]> =
+            unsafe { Box::new_uninit().assume_init() };
+        for v in &mut *uninitialized {
             v.write(rng.gen());
         }
 
-        let ret: Box<[u8; N]> = unsafe { core::mem::transmute(ret) };
-        HexArray::new_boxed(ret)
+        let initialized: Box<[u8; N]> = unsafe { mem::transmute(uninitialized) };
+        HexArray::new_boxed(initialized)
     }
 }
 

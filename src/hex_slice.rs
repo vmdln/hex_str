@@ -4,7 +4,7 @@ use core::{
 };
 use std::ops::{Deref, DerefMut};
 
-use crate::utils;
+use crate::{utils, HexArray, HexVector};
 
 extern crate alloc;
 
@@ -127,6 +127,18 @@ impl alloc::fmt::Debug for HexSlice {
 }
 
 // PartialEq
+impl<const N: usize> PartialEq<HexArray<N>> for HexSlice {
+    fn eq(&self, other: &HexArray<N>) -> bool {
+        self == other.as_hex_slice()
+    }
+}
+
+impl PartialEq<HexVector> for HexSlice {
+    fn eq(&self, other: &HexVector) -> bool {
+        self == other.as_hex_slice()
+    }
+}
+
 impl PartialEq<[u8]> for HexSlice {
     fn eq(&self, other: &[u8]) -> bool {
         self.0 == *other
